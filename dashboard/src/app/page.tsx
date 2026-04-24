@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Activity, AlertTriangle, Settings, Database, MapPin, Radio, Cpu, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, Activity, AlertTriangle, Database, MapPin, Radio, Cpu, Wifi, WifiOff, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MetricCards from '@/components/MetricCards';
 import VisionFeed from '@/components/VisionFeed';
@@ -9,14 +9,16 @@ import TrafficStats from '@/components/TrafficStats';
 import AccidentAlert from '@/components/AccidentAlert';
 import SignalController from '@/components/SignalController';
 import DataLab from '@/components/DataLab';
+import TrafficSimulation from '@/components/TrafficSimulation';
 
-type Tab = 'monitor' | 'analytics' | 'accidents' | 'datalab';
+type Tab = 'monitor' | 'analytics' | 'accidents' | 'datalab' | 'simulation';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'monitor',   label: 'Live Monitor',    icon: <LayoutDashboard size={19} /> },
-  { id: 'analytics', label: 'Flow Analytics',  icon: <Activity size={19} /> },
-  { id: 'accidents', label: 'Accident Logs',   icon: <AlertTriangle size={19} /> },
-  { id: 'datalab',   label: 'Data Lab',        icon: <Database size={19} /> },
+  { id: 'monitor',    label: 'Live Monitor',    icon: <LayoutDashboard size={19} /> },
+  { id: 'simulation', label: 'AI Simulation',   icon: <Layers size={19} /> },
+  { id: 'analytics',  label: 'Flow Analytics',  icon: <Activity size={19} /> },
+  { id: 'accidents',  label: 'Accident Logs',   icon: <AlertTriangle size={19} /> },
+  { id: 'datalab',    label: 'Data Lab',        icon: <Database size={19} /> },
 ];
 
 export default function Home() {
@@ -215,6 +217,24 @@ export default function Home() {
                 <p className="text-sm text-gray-500 mt-0.5">Upload and manage training samples for all models</p>
               </div>
               <DataLab />
+            </div>
+          )}
+
+          {activeTab === 'simulation' && (
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-white">AI Traffic Simulation</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Real-time side-by-side: RL-PPO adaptive signal vs. traditional fixed timing — Chennai arterial corridors
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                  Live simulation
+                </div>
+              </div>
+              <TrafficSimulation />
             </div>
           )}
         </div>
