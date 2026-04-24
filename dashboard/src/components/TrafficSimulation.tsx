@@ -36,8 +36,12 @@ interface Engine {
   phase: Phase; phaseLeft: number; phaseDur: number;
   vehs: Vehicle[]; cleared: number; totalWait: number;
   ambCleared: number;
-  idCtr: number; spawnT: Record<Dir,number>;
   elapsed: number; aiLog: string;
+}
+
+interface SpawnState {
+  spawnT: Record<Dir,number>;
+  idCtr: number;
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -87,19 +91,42 @@ function moveCar(v: Vehicle, dt: number) {
 function mkEngine(phase: Phase, dur: number): Engine {
   return {
     phase, phaseLeft:dur, phaseDur:dur,
-    vehs:[], cleared:0, totalWait:0, ambCleared: 0, idCtr:0,
-    spawnT:{N:1,S:2,E:0.5,W:1.5},
+    vehs:[], cleared:0, totalWait:0, ambCleared: 0,
     elapsed:0, aiLog:'Initialising…',
   };
 }
 
-// ── Simulation step ───────────────────────────────────────────────────────────
-function step(eng: Engine, dtReal: number, isAI: boolean): Engine {
+// ── Shared Spawner ────────────────────────────────────────────────────────────
+function generateSpawns(state: SpawnState, dtReal: number): Vehicle[] {
   const dt = dtReal * SIM_MULT;
-  const e: Engine = {...eng, vehs:eng.vehs.map(v=>({...v})), spawnT:{...eng.spawnT}};
+  const newVehs: Vehicle[] = [];
+  DIRS.forEach(dir => {
+    state.spawnT[dir] -= dt;
+    if (state.spawnT[dir] <= 0) {
+      state.spawnT[dir] = SPAWN_INT + (Math.random()-0.5)*2;
+      const isAmbulance = Math.random() < AMB_CHANCE;
+      const p = initPos(dir);
+      newVehs.push({
+        id:state.idCtr++, dir, x:p.x, y:p.y,
+        state:'queue', waitSecs:0,
+        color: isAmbulance ? '#ffffff' : COLORS[Math.floor(Math.random()*COLORS.length)],
+        isAmbulance
+      });
+    }
+  });
+  return newVehs;
+}
+
+// ── Simulation step ───────────────────────────────────────────────────────────
+function step(eng: Engine, dtReal: number, isAI: boolean, newVehs: Vehicle[]): Engine {
+  const dt = dtReal * SIM_MULT;
+  const e: Engine = {...eng, vehs:eng.vehs.map(v=>({...v}))};
 
   e.elapsed   += dt;
   e.phaseLeft  = Math.max(0, e.phaseLeft - dt);
+  
+  // Add new vehicles from shared spawner
+  newVehs.forEach(v => e.vehs.push({...v}));
 
   // Detect ambulances in queues
   const ambInQueue = e.vehs.find(v => v.state === 'queue' && v.isAmbulance);
@@ -141,22 +168,6 @@ function step(eng: Engine, dtReal: number, isAI: boolean): Engine {
       }
     }
   }
-
-  // Spawn --
-  DIRS.forEach(dir => {
-    e.spawnT[dir] -= dt;
-    if (e.spawnT[dir] <= 0) {
-      e.spawnT[dir] = SPAWN_INT + (Math.random()-0.5)*2;
-      const isAmbulance = Math.random() < AMB_CHANCE;
-      const p = initPos(dir);
-      e.vehs.push({
-        id:e.idCtr++, dir, x:p.x, y:p.y,
-        state:'queue', waitSecs:0,
-        color: isAmbulance ? '#ffffff' : COLORS[Math.floor(Math.random()*COLORS.length)],
-        isAmbulance
-      });
-    }
-  });
 
   // Build queues per direction
   const queued: Record<Dir,Vehicle[]> = {N:[],S:[],E:[],W:[]};
@@ -316,6 +327,10 @@ export default function TrafficSimulation() {
   const tradRef = useRef<HTMLCanvasElement>(null);
   const aiEng   = useRef<Engine>(mkEngine('NS',20));
   const tradEng = useRef<Engine>(mkEngine('NS',30));
+  const spawnState = useRef<SpawnState>({
+    spawnT: {N:1,S:2,E:0.5,W:1.5},
+    idCtr: 0
+  });
   const lastTs  = useRef(0);
   const rafId   = useRef(0);
   const frameRef = useRef(0);
@@ -339,8 +354,10 @@ export default function TrafficSimulation() {
     lastTs.current = ts;
     frameRef.current++;
 
-    aiEng.current   = step(aiEng.current,   dtReal, true);
-    tradEng.current = step(tradEng.current, dtReal, false);
+    const newVehs = generateSpawns(spawnState.current, dtReal);
+
+    aiEng.current   = step(aiEng.current,   dtReal, true, newVehs);
+    tradEng.current = step(tradEng.current, dtReal, false, newVehs);
 
     const aiCtx   = aiRef.current?.getContext('2d');
     const tradCtx = tradRef.current?.getContext('2d');
@@ -379,6 +396,10 @@ export default function TrafficSimulation() {
   const restartSim = () => {
       aiEng.current = mkEngine('NS', 20);
       tradEng.current = mkEngine('NS', 30);
+      spawnState.current = {
+        spawnT: {N:1,S:2,E:0.5,W:1.5},
+        idCtr: 0
+      };
       setShowResults(false);
       setIsRunning(true);
   };
