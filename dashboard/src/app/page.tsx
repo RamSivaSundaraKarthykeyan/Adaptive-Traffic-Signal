@@ -57,7 +57,7 @@ export default function Home() {
             <Radio size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold leading-tight text-white">TN-ITMS AI</h1>
+            <h1 className="text-base font-bold leading-tight text-white">Chennai-ITMS AI</h1>
             <p className="text-[10px] text-gray-500 tracking-wide">Smart Traffic Platform</p>
           </div>
         </div>
@@ -116,8 +116,8 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm">
               <MapPin size={14} className="text-blue-400" />
-              <span className="text-gray-500">Active Zones:</span>
-              <span className="text-gray-200 font-semibold">Chennai, Coimbatore, Madurai</span>
+              <span className="text-gray-500">Active Zone:</span>
+              <span className="text-gray-200 font-semibold">Chennai Arterial Corridors</span>
             </div>
           </div>
           <div className="flex items-center gap-4">

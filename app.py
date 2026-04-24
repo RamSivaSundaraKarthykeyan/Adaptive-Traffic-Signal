@@ -14,7 +14,7 @@ from PIL import Image
 import torchvision.models as tvm
 import torch.nn as nn
 
-app = FastAPI(title="Tamil Nadu ITMS Backend")
+app = FastAPI(title="Chennai ITMS Backend")
 
 # Enable CORS for Next.js
 app.add_middleware(
