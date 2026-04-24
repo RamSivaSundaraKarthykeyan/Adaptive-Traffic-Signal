@@ -1,0 +1,8 @@
+{
+  "Chennai": {
+    "signal_nodes": 306,
+    "avg_upstream_neighbors": 1.21,
+    "graph_nodes": 68540,
+    "graph_edges": 173888
+  }
+}
