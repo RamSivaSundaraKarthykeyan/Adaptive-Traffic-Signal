@@ -367,8 +367,8 @@ export default function TrafficSimulation() {
     const ae=aiEng.current, te=tradEng.current;
     setStats({
       aiCleared:ae.cleared, tradCleared:te.cleared,
-      aiWait:   ae.cleared ? ae.totalWait/ae.cleared : 0,
-      tradWait: te.cleared ? te.totalWait/te.cleared : 0,
+      aiWait:   ae.cleared ? (ae.totalWait/ae.cleared) * SIM_MULT : 0,
+      tradWait: te.cleared ? (te.totalWait/te.cleared) * SIM_MULT : 0,
       aiQueue:  ae.vehs.filter(v=>v.state==='queue').length,
       tradQueue:te.vehs.filter(v=>v.state==='queue').length,
       aiAmb: ae.ambCleared, tradAmb: te.ambCleared,
