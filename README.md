@@ -1,17 +1,16 @@
-# Smart Traffic AI — Tamil Nadu ITMS Extension
+# Smart Traffic AI — Chennai ITMS Extension
 
 ## Overview
-An end-to-end AI-powered traffic management system targeting Tamil Nadu's major urban corridors.
+An end-to-end AI-powered traffic management system targeting Chennai's major urban arterial corridors.
 Built for RTX 2050 (4GB VRAM) with full GPU acceleration.
 
 ## Target Region
-**Tamil Nadu, India** — Major cities covered:
-- Chennai (capital — primary focus)
-- Coimbatore
-- Madurai
-- Tiruchirappalli (Trichy)
-- Salem
-- Tirunelveli
+**Chennai, India** — Primary focus areas:
+- Anna Salai
+- OMR (Old Mahabalipuram Road)
+- ECR (East Coast Road)
+- Poonamallee High Road
+- Inner Ring Road
 
 ## Folder Structure
 ```
@@ -27,7 +26,7 @@ nm_traffic_flow_optimization/
 │   ├── lstm/                  # LSTM traffic flow predictor
 │   ├── rl/                    # PPO RL signal optimizer (SUMO)
 │   └── accident/              # EfficientNet-B0 accident detector
-├── signal_graph/              # OSM-based Tamil Nadu signal graph
+├── signal_graph/              # OSM-based Chennai signal graph
 ├── mqtt/                      # Inter-signal MQTT communication
 ├── dashboard/                 # FastAPI + React monitoring dashboard
 ├── sumo_sim/                  # SUMO simulation files
@@ -50,7 +49,7 @@ nm_traffic_flow_optimization/
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Build Tamil Nadu signal graph
+# 2. Build Chennai signal graph
 python signal_graph/build_graph.py
 
 # 3. Train models (run in order)
@@ -70,4 +69,4 @@ python integration_test.py
 - CUDA: 11.8+
 
 ---
-*Smart Traffic AI | Tamil Nadu ITMS Extension | Built with Antigravity IDE*
+*Smart Traffic AI | Chennai ITMS Extension | Built with Antigravity IDE*
