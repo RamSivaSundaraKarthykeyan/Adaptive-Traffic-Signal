@@ -1,0 +1,3 @@
+the number of cars detected in the vehicle detection model should be communicated with the traffic optimizer model and accordingly the signal timing should be adjusted.
+
+in real time scenario the vehicle detection model should be able to detect the vehicles and communicate with the traffic optimizer model and accordingly the signal timing should be adjusted, the communication should happen seamleassly and instantly between these models.
