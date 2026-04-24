@@ -142,7 +142,7 @@ function step(eng: Engine, dtReal: number, isAI: boolean): Engine {
     }
   }
 
-  // Spawn
+  // Spawn --
   DIRS.forEach(dir => {
     e.spawnT[dir] -= dt;
     if (e.spawnT[dir] <= 0) {
