@@ -1,0 +1,104 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Next.js
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Package Managers
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env*
+
+# AI/ML - Models and Weights
+*.pt
+*.pth
+*.weights
+*.h5
+*.onnx
+*.pb
+*.model
+*.ckpt
+*.pkl
+*.pickle
+*.joblib
+
+# AI/ML - Datasets and Logs
+*.zip
+*.tar
+*.gz
+*.7z
+data/raw/
+data/processed/
+data/labeled/
+logs/
+runs/
+results/
+cache/
+.ipynb_checkpoints/
+wandb/
+lightning_logs/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.pem
+
+# Python specific
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.pc/
+.unit/
