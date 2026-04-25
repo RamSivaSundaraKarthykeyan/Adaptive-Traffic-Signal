@@ -53,9 +53,7 @@ export default function Home() {
       <aside className="w-64 border-r border-gray-800/80 flex flex-col bg-[#0c0c0f]">
         {/* Logo */}
         <div className="p-6 border-b border-gray-800/80 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
-            <Radio size={18} className="text-white" />
-          </div>
+         
           <div>
             <h1 className="text-base font-bold leading-tight text-white">Chennai-ITMS AI</h1>
             <p className="text-[10px] text-gray-500 tracking-wide">Smart Traffic Platform</p>
@@ -124,10 +122,7 @@ export default function Home() {
             <div className="text-xs text-gray-600 font-mono bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-lg">
               LIVE {now}
             </div>
-            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              5/5 Models Operational
-            </div>
+            
           </div>
         </header>
 
@@ -179,7 +174,7 @@ export default function Home() {
                 <p className="text-sm text-gray-500 mt-0.5">Real-time CNN accident detection results</p>
               </div>
               <AccidentAlert probability={accidentProb} />
-              <div className="bg-[#0d0d10] border border-gray-800 rounded-2xl overflow-hidden">
+              <div className="bg-[#0d0d10] border border-gray-800  overflow-hidden">
                 <div className="p-5 border-b border-gray-800 flex items-center justify-between">
                   <span className="font-semibold">Recent Events</span>
                   <span className="text-xs text-gray-500">Last 24 hours</span>
