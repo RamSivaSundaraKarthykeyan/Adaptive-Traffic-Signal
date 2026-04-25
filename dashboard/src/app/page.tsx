@@ -99,11 +99,7 @@ export default function Home() {
             </div>
           </div>
           {/* GPU Status */}
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-800/80 text-xs text-gray-400">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span>CUDA Active</span>
-            <span className="ml-auto text-gray-600 font-mono">best.pt</span>
-          </div>
+         
         </div>
       </aside>
 
