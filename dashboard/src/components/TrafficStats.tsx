@@ -16,7 +16,7 @@ const data = [
 
 export default function TrafficStats() {
   return (
-    <div className="bg-[#0d0d10] border border-gray-800 rounded-2xl p-6 h-full shadow-xl">
+    <div className="bg-[#0d0d10] border border-gray-800  p-6 h-full shadow-xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-bold">Traffic Flow Analysis</h3>
