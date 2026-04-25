@@ -47,11 +47,8 @@ export default function DataLab() {
   };
 
   return (
-    <div className="bg-[#0d0d10] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
-      <div>
-        <h3 className="text-lg font-bold">Data Lab</h3>
-        <p className="text-sm text-gray-500">Upload sample images to test & expand your training dataset</p>
-      </div>
+    <div className="bg-[#0d0d10] border border-gray-800  p-6 shadow-xl flex flex-col gap-5">
+      
 
       {/* Drop Zone */}
       <div
