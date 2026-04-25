@@ -111,7 +111,7 @@ export default function VisionFeed() {
   const reset = () => { setImageUrl(null); setResult(null); setError(null); };
 
   return (
-    <div className="bg-[#0d0d10] border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
+    <div className="bg-[#0d0d10] border border-gray-800 p-6 shadow-xl flex flex-col ml-[200px] gap-5">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold">Live Vision Feed</h3>
