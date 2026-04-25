@@ -448,10 +448,8 @@ export default function TrafficSimulation() {
                   />
               </div>
 
-              <div className="bg-[#0c0f1d] border border-gray-800 rounded-3xl p-8 overflow-hidden relative">
-                  <div className="absolute top-0 right-0 p-8 opacity-5">
-                      <Award size={160} />
-                  </div>
+              <div className="bg-[#0c0f1d] border border-gray-800  p-8 overflow-hidden relative">
+                 
                   <h3 className="text-xl font-bold mb-6">Comparative Summary</h3>
                   <div className="space-y-6">
                       <ComparisonRow label="Total Vehicles Cleared" ai={stats.aiCleared} trad={stats.tradCleared} unit=" vehicles" />
