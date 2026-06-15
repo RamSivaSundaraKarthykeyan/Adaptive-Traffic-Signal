@@ -54,12 +54,17 @@ combined_G = None
 
 for city in CITIES:
     city_short = city.split(",")[0]
-    print(f"\n[->] Fetching OSM graph for {city_short}...")
+    city_file = os.path.join(SIGNAL_GRAPH_DIR, f"{city_short.lower().replace(' ', '_')}_graph.graphml")
     t0 = time.time()
     try:
-        G = ox.graph_from_place(city, network_type="drive")
-        elapsed = time.time() - t0
-        print(f"    Graph loaded in {elapsed:.1f}s — {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+        if os.path.isfile(city_file):
+            print(f"\n[->] Loading local OSM graph for {city_short}...")
+            G = ox.load_graphml(city_file)
+            elapsed = time.time() - t0
+            print(f"    Graph loaded from file in {elapsed:.1f}s — {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+        else:
+            print(f"\n[->] Skipping {city_short} (no local graphml file found at {city_file})")
+            continue
 
         # Extract signal nodes for this city
         city_signals = {
@@ -93,13 +98,13 @@ for city in CITIES:
             "graph_edges": G.number_of_edges(),
         }
 
-        # Save per-city graphml
-        city_file = os.path.join(SIGNAL_GRAPH_DIR, f"{city_short.lower().replace(' ', '_')}_graph.graphml")
-        ox.save_graphml(G, filepath=city_file)
-        print(f"    Saved: {os.path.basename(city_file)}")
+        # Save per-city graphml if not already saved
+        if not os.path.isfile(city_file):
+            ox.save_graphml(G, filepath=city_file)
+            print(f"    Saved: {os.path.basename(city_file)}")
 
     except Exception as e:
-        print(f"    WARNING: Could not fetch {city_short}: {e}")
+        print(f"    WARNING: Could not fetch/load {city_short}: {e}")
         city_stats[city_short] = {"error": str(e)}
         continue
 
