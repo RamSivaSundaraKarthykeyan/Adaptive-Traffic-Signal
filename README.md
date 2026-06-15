@@ -44,22 +44,39 @@ nm_traffic_flow_optimization/
 ## Vehicle Classes
 0: car | 1: truck | 2: two_wheeler | 3: auto_rickshaw | 4: bus | 5: ambulance | 6: pedestrian
 
-## Quick Start
+## Quick Start (Setting up on a new PC)
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone https://github.com/RamSivaSundaraKarthykeyan/Adaptive-Traffic-Signal.git
+cd Adaptive-Traffic-Signal
+
+# 2. Setup Python Environment
+python -m venv venv
+venv\Scripts\activate      # On Windows
+# source venv/bin/activate # On Linux/Mac
+
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
-# 2. Build Chennai signal graph
-python signal_graph/build_graph.py
+# 4. Setup the Dashboard UI (Next.js)
+cd dashboard
+npm install
+npm run dev
 
-# 3. Train models (run in order)
+# The dashboard will be available at http://localhost:3000
+
+# 5. Run the AI Pipeline / Integration Test
+# (In a new terminal, make sure to activate the venv again)
+python integration_test.py
+```
+
+### AI Models Note
+The pretrained AI models (`best_accident.pt`, `best_lstm.pt`, `best.pt`) are tracked via git so you don't need to retrain them on a new PC. However, if you wish to retrain them from scratch:
+```bash
 python models/yolo/train_yolo.py
 python models/lstm/train_lstm.py
 python models/accident/train_accident.py
 python models/rl/train_rl.py
-
-# 4. Integration test
-python integration_test.py
 ```
 
 ## Hardware Requirements

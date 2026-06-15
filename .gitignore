@@ -49,6 +49,11 @@ yarn-error.log*
 *.pickle
 *.joblib
 
+# Allow our specific trained models
+!models/accident/best_accident.pt
+!models/lstm/best_lstm.pt
+!models/yolo/best.pt
+
 # AI/ML - Datasets and Logs
 *.zip
 *.tar
