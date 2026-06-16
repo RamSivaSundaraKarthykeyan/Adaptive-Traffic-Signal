@@ -30,13 +30,13 @@ export interface SignalState {
 export interface VehicleState {
   id: string;
   type: 'car' | 'ambulance' | 'fire_engine';
-  x: number;
-  y: number;
+  lat: number;
+  lon: number;
   fromJunctionId: string;
   toJunctionId: string;
   roadId: string;
   progress: number; // 0–1 along current road segment
-  speed: number;    // px/s
+  speed: number;    // meters/sec
   color: string;
   state: 'moving' | 'stopped' | 'arrived';
   accidentId?: string;
@@ -86,11 +86,11 @@ export async function getMapLayout(): Promise<{
  * GET /api/map/nearest-hospital?lat=&lon=
  * Returns the nearest hospital to a given position.
  */
-export async function getNearestHospital(x: number, y: number): Promise<Hospital> {
+export async function getNearestHospital(lat: number, lon: number): Promise<Hospital> {
   let best = HOSPITALS[0];
   let bestDist = Infinity;
   for (const h of HOSPITALS) {
-    const d = Math.hypot(h.x - x, h.y - y);
+    const d = Math.hypot(h.lat - lat, h.lon - lon);
     if (d < bestDist) { bestDist = d; best = h; }
   }
   return best;
@@ -141,8 +141,8 @@ export async function spawnVehicle(
     fromJunctionId: string;
     toJunctionId: string;
     roadId: string;
-    startX: number;
-    startY: number;
+    startLat: number;
+    startLon: number;
     color: string;
     pathJunctionIds?: string[];
     accidentId?: string;
@@ -152,8 +152,8 @@ export async function spawnVehicle(
   const v: VehicleState = {
     id: params.id,
     type: params.type,
-    x: params.startX,
-    y: params.startY,
+    lat: params.startLat,
+    lon: params.startLon,
     fromJunctionId: params.fromJunctionId,
     toJunctionId: params.toJunctionId,
     roadId: params.roadId,

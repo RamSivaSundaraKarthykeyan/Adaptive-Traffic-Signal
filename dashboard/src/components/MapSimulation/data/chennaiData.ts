@@ -6,26 +6,12 @@
 export const MAP_W = 860;
 export const MAP_H = 560;
 
-// ── Lat/lon → SVG pixel projection ────────────────────────────────────────
-const LAT_MIN = 13.054;
-const LAT_MAX = 13.101;
-const LON_MIN = 80.190;
-const LON_MAX = 80.232;
-
-export function project(lat: number, lon: number): { x: number; y: number } {
-  const x = ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * MAP_W;
-  const y = MAP_H - ((lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * MAP_H;
-  return { x: Math.round(x), y: Math.round(y) };
-}
-
 // ── Junction definitions ───────────────────────────────────────────────────
 export interface Junction {
   id: string;
   name: string;
   lat: number;
   lon: number;
-  x: number; // SVG x
-  y: number; // SVG y
   capacity: number; // max vehicles per arm
   speedLimit: number; // km/h on approach roads
 }
@@ -43,10 +29,7 @@ const rawJunctions = [
   { id: 'J10', name: 'Saligramam Junction',          lat: 13.0597, lon: 80.1956, capacity: 16, speedLimit: 50 },
 ];
 
-export const JUNCTIONS: Junction[] = rawJunctions.map(j => ({
-  ...j,
-  ...project(j.lat, j.lon),
-}));
+export const JUNCTIONS: Junction[] = rawJunctions;
 
 // ── Road / edge definitions ────────────────────────────────────────────────
 export interface Road {
@@ -85,8 +68,6 @@ export interface Hospital {
   name: string;
   lat: number;
   lon: number;
-  x: number;
-  y: number;
   phone: string;
   nearestJunctionId: string;
 }
@@ -97,10 +78,7 @@ const rawHospitals = [
   { id: 'H03', name: 'CMBT Government Hospital',      lat: 13.0684, lon: 80.1960, phone: '+91-44-2479-0000', nearestJunctionId: 'J07' },
 ];
 
-export const HOSPITALS: Hospital[] = rawHospitals.map(h => ({
-  ...h,
-  ...project(h.lat, h.lon),
-}));
+export const HOSPITALS: Hospital[] = rawHospitals;
 
 // ── Traffic video files ────────────────────────────────────────────────────
 // These live in data/dataset/ — we serve them via Next.js public folder symlink.

@@ -5,7 +5,7 @@ import {
   Activity, Layers, MapPin, Pause, Play, RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import MapRenderer from './MapRenderer';
+import MapRenderer from './LeafletMapRenderer';
 import SignalPopup from './SignalPopup';
 import SignalCommunicationPanel from './SignalCommunicationPanel';
 import { initEngine, tick, EngineState } from './SimulationEngine';
@@ -72,12 +72,14 @@ function AccidentLogItem({ junctionId, severity, resolved, timestamp }: {
 
 // ── Root component ────────────────────────────────────────────────────────
 export default function MapSimulation() {
-  const engineRef   = useRef<EngineState>(initEngine());
+  const aiEngineRef   = useRef<EngineState>(initEngine(false));
+  const tradEngineRef = useRef<EngineState>(initEngine(true));
   const rafRef      = useRef<number>(0);
   const lastTsRef   = useRef<number>(0);
   const frameRef    = useRef<number>(0);
 
-  const [displayState, setDisplayState] = useState<EngineState>(() => initEngine());
+  const [aiDisplayState, setAiDisplayState] = useState<EngineState>(() => initEngine(false));
+  const [tradDisplayState, setTradDisplayState] = useState<EngineState>(() => initEngine(true));
   const [frame, setFrame]               = useState(0);
   const [isRunning, setIsRunning]       = useState(true);
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
@@ -90,17 +92,26 @@ export default function MapSimulation() {
     lastTsRef.current = ts;
     frameRef.current++;
 
-    engineRef.current = tick(engineRef.current, dt);
+    aiEngineRef.current = tick(aiEngineRef.current, dt);
+    tradEngineRef.current = tick(tradEngineRef.current, dt);
 
     // Sync display every 2 frames to avoid state-flood
     if (frameRef.current % 2 === 0) {
-      setDisplayState({
-        ...engineRef.current,
-        signals:   new Map(engineRef.current.signals),
-        vehicles:  new Map(engineRef.current.vehicles),
-        accidents: new Map(engineRef.current.accidents),
-        messageLog: [...engineRef.current.messageLog],
-        densityMap: new Map(engineRef.current.densityMap),
+      setAiDisplayState({
+        ...aiEngineRef.current,
+        signals:   new Map(aiEngineRef.current.signals),
+        vehicles:  new Map(aiEngineRef.current.vehicles),
+        accidents: new Map(aiEngineRef.current.accidents),
+        messageLog: [...aiEngineRef.current.messageLog],
+        densityMap: new Map(aiEngineRef.current.densityMap),
+      });
+      setTradDisplayState({
+        ...tradEngineRef.current,
+        signals:   new Map(tradEngineRef.current.signals),
+        vehicles:  new Map(tradEngineRef.current.vehicles),
+        accidents: new Map(tradEngineRef.current.accidents),
+        messageLog: [...tradEngineRef.current.messageLog],
+        densityMap: new Map(tradEngineRef.current.densityMap),
       });
       setFrame(frameRef.current);
     }
@@ -118,11 +129,11 @@ export default function MapSimulation() {
 
   // ── Helpers ─────────────────────────────────────────────────────────
   const fmtTime = (s: number) => `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
-  const avgWait = displayState.clearedCount > 0
-    ? (displayState.totalWait / displayState.clearedCount).toFixed(1)
+  const avgWaitAi = aiDisplayState.clearedCount > 0
+    ? (aiDisplayState.totalWait / aiDisplayState.clearedCount).toFixed(1)
     : '–';
 
-  const accidentList = Array.from(displayState.accidents.values())
+  const accidentList = Array.from(aiDisplayState.accidents.values())
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 12);
 
@@ -130,15 +141,17 @@ export default function MapSimulation() {
 
   const restart = () => {
     cancelAnimationFrame(rafRef.current);
-    engineRef.current = initEngine();
-    setDisplayState(initEngine());
+    aiEngineRef.current = initEngine(false);
+    tradEngineRef.current = initEngine(true);
+    setAiDisplayState(initEngine(false));
+    setTradDisplayState(initEngine(true));
     frameRef.current = 0;
     setSelectedJunctionId(null);
     setIsRunning(true);
   };
 
   const selectedSignal = selectedJunctionId
-    ? displayState.signals.get(selectedJunctionId) ?? null
+    ? aiDisplayState.signals.get(selectedJunctionId) ?? null
     : null;
 
   return (
@@ -149,10 +162,10 @@ export default function MapSimulation() {
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex-1 min-w-0">
           <Brain size={14} className="text-indigo-400 animate-pulse flex-shrink-0" />
           <span className="text-indigo-300 font-mono text-xs tracking-wide truncate flex-1">
-            {displayState.aiLog || 'RL-PPO signal optimizer active…'}
+            {aiDisplayState.aiLog || 'RL-PPO signal optimizer active…'}
           </span>
           <span className="text-gray-600 text-xs font-mono flex-shrink-0">
-            {fmtTime(displayState.elapsed)}
+            {fmtTime(aiDisplayState.elapsed)}
           </span>
         </div>
 
@@ -181,88 +194,82 @@ export default function MapSimulation() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <MetricCard
           icon={<Car size={15} />}
-          label="Vehicles"
-          value={displayState.vehicles.size}
-          sub="active on map"
+          label="Vehicles (AI)"
+          value={aiDisplayState.vehicles.size}
+          sub={`Trad: ${tradDisplayState.vehicles.size}`}
           accent="blue"
         />
         <MetricCard
           icon={<Activity size={15} />}
-          label="Cleared"
-          value={displayState.clearedCount}
-          sub={`avg wait ${avgWait}s`}
+          label="Wait Time (AI)"
+          value={`${avgWaitAi}s`}
+          sub={`Trad: ${tradDisplayState.clearedCount > 0 ? (tradDisplayState.totalWait / tradDisplayState.clearedCount).toFixed(1) : '–'}s`}
           accent="green"
         />
         <MetricCard
           icon={<AlertTriangle size={15} />}
           label="Accidents"
-          value={displayState.accidentCount}
+          value={aiDisplayState.accidentCount}
           sub={`${activeAccidents} active`}
           accent="red"
         />
         <MetricCard
           icon={<Siren size={15} />}
           label="Amb Cleared"
-          value={displayState.ambCleared}
+          value={aiDisplayState.ambCleared}
           sub="to hospital"
           accent="orange"
         />
         <MetricCard
           icon={<Flame size={15} />}
           label="Fire Cleared"
-          value={displayState.fireCleared}
+          value={aiDisplayState.fireCleared}
           sub="dispatched"
           accent="orange"
         />
         <MetricCard
           icon={<Layers size={15} />}
-          label="Signals"
-          value={displayState.signals.size}
-          sub={`${Array.from(displayState.signals.values()).filter(s => s.phase === 'green').length} green`}
+          label="Cleared (AI)"
+          value={aiDisplayState.clearedCount}
+          sub={`Trad: ${tradDisplayState.clearedCount}`}
           accent="indigo"
         />
       </div>
 
       {/* ── Main content ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="flex flex-col xl:flex-row gap-4">
 
-        {/* Map panel – 2/3 width on xl */}
-        <div className="xl:col-span-2 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden">
-          {/* Map header */}
-          <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-800 bg-[#0c0f1d]">
-            <MapPin size={14} className="text-blue-400" />
-            <span className="text-sm font-bold text-gray-200">Anna Nagar / Thirumangalam — Chennai ITMS Live Map</span>
-            <div className="ml-auto flex items-center gap-2 text-[10px] text-gray-500">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              {displayState.vehicles.size} vehicles · {displayState.signals.size} signals
-            </div>
+        {/* Map panels */}
+        <div className="flex-1 flex flex-col md:flex-row gap-4">
+          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative">
+             <MapRenderer
+               engineState={aiDisplayState}
+               frame={frame}
+               onSignalClick={setSelectedJunctionId}
+               selectedSignalId={selectedJunctionId}
+               isTraditional={false}
+             />
+             {selectedJunctionId && (
+               <SignalPopup
+                 junctionId={selectedJunctionId}
+                 signalState={selectedSignal}
+                 onClose={() => setSelectedJunctionId(null)}
+               />
+             )}
           </div>
-
-          {/* Map + popup container */}
-          <div className="relative">
-            <MapRenderer
-              engineState={displayState}
-              frame={frame}
-              onSignalClick={setSelectedJunctionId}
-              selectedSignalId={selectedJunctionId}
-            />
-            {selectedJunctionId && (
-              <SignalPopup
-                junctionId={selectedJunctionId}
-                signalState={selectedSignal}
-                onClose={() => setSelectedJunctionId(null)}
-              />
-            )}
-          </div>
-
-          {/* Map hint */}
-          <div className="px-5 py-2 border-t border-gray-800/60 text-[10px] text-gray-600">
-            Click any signal node (colored circle) to view live feed, queue length, and timing info
+          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative">
+             <MapRenderer
+               engineState={tradDisplayState}
+               frame={frame}
+               onSignalClick={setSelectedJunctionId}
+               selectedSignalId={selectedJunctionId}
+               isTraditional={true}
+             />
           </div>
         </div>
 
-        {/* Right panel – 1/3 width on xl */}
-        <div className="flex flex-col gap-4">
+        {/* Right panel */}
+        <div className="w-full xl:w-80 flex flex-col gap-4">
 
           {/* Tab switcher */}
           <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1">
@@ -286,11 +293,11 @@ export default function MapSimulation() {
             /* Junction status grid */
             <div className="rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden flex-1">
               <div className="px-4 py-3 border-b border-gray-800 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                Signal Status Grid
+                Signal Status (AI)
               </div>
               <div className="overflow-y-auto max-h-64 divide-y divide-gray-800/60">
                 {JUNCTIONS.map(j => {
-                  const sig = displayState.signals.get(j.id);
+                  const sig = aiDisplayState.signals.get(j.id);
                   const phase = sig?.phase ?? 'red';
                   const phaseColor =
                     phase === 'green'  ? 'bg-green-500' :
@@ -361,7 +368,7 @@ export default function MapSimulation() {
           )}
 
           {/* Signal comm panel */}
-          <SignalCommunicationPanel messages={displayState.messageLog} />
+          <SignalCommunicationPanel messages={aiDisplayState.messageLog} />
         </div>
       </div>
     </div>
