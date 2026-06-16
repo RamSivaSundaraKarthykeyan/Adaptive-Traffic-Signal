@@ -76,24 +76,28 @@ function getRoadBetween(fromId: string, toId: string): Road | undefined {
 
 export interface EngineState {
   isTraditional: boolean;
-  signals:      Map<string, SignalState>;
-  vehicles:     Map<string, VehicleState>;
-  accidents:    Map<string, AccidentEvent>;
-  messageLog:   SignalMessage[];
-  densityMap:   Map<string, number>; // roadId → 0–1
-  elapsed:      number;
-  aiLog:        string;
-  accidentCount:number;
-  resolvedCount:number;
-  totalWait:    number;
-  clearedCount: number;
-  ambCleared:   number;
-  fireCleared:  number;
+  signals:       Map<string, SignalState>;
+  vehicles:      Map<string, VehicleState>;
+  accidents:     Map<string, AccidentEvent>;
+  messageLog:    SignalMessage[];
+  densityMap:    Map<string, number>;   // roadId → 0–1
+  pendingDispatch: { accidentId: string; dispatchAtSimTime: number }[]; // traditional mode delay queue
+  elapsed:       number;
+  simTime:       number;                // simulated time (elapsed * 3)
+  aiLog:         string;
+  accidentCount: number;
+  resolvedCount: number;
+  totalWait:     number;
+  clearedCount:  number;
+  ambCleared:    number;
+  fireCleared:   number;
 }
 
-/** Phase starve timers per signal */
-const phaseStarveNS = new Map<string, number>();
-const phaseStarveEW = new Map<string, number>();
+/** Phase starve timers per signal — separate maps for AI vs Traditional to avoid bleed */
+const aiPhaseStarveNS  = new Map<string, number>();
+const aiPhaseStarveEW  = new Map<string, number>();
+const tradPhaseStarveNS = new Map<string, number>();
+const tradPhaseStarveEW = new Map<string, number>();
 
 let vehicleIdCtr = 0;
 const VEHICLE_COLORS = ['#38bdf8','#818cf8','#34d399','#fb923c','#f472b6','#facc15','#a78bfa','#67e8f9'];
@@ -106,7 +110,7 @@ export function initEngine(isTraditional: boolean = false): EngineState {
     signals.set(j.id, {
       signalId: j.id,
       phase: Math.random() > 0.5 ? 'green' : 'red',
-      timeRemainingS: 15 + Math.random() * 15,
+      timeRemainingS: 10 + Math.random() * 20,
       greenDurationS: 30,
       queueNS: 0,
       queueEW: 0,
@@ -114,25 +118,32 @@ export function initEngine(isTraditional: boolean = false): EngineState {
       nextPredictedDurationS: 30,
       hasEmergencyVehicle: false,
     });
-    phaseStarveNS.set(j.id, 0);
-    phaseStarveEW.set(j.id, 0);
+    if (isTraditional) {
+      tradPhaseStarveNS.set(j.id, 0);
+      tradPhaseStarveEW.set(j.id, 0);
+    } else {
+      aiPhaseStarveNS.set(j.id, 0);
+      aiPhaseStarveEW.set(j.id, 0);
+    }
   }
 
   return {
     isTraditional,
     signals,
-    vehicles:     new Map(),
-    accidents:    new Map(),
-    messageLog:   [],
-    densityMap:   new Map(),
-    elapsed:      0,
-    aiLog:        isTraditional ? 'Traditional Fixed-Timer Active' : 'AI optimizer initialising…',
-    accidentCount:0,
-    resolvedCount:0,
-    totalWait:    0,
-    clearedCount: 0,
-    ambCleared:   0,
-    fireCleared:  0,
+    vehicles:        new Map(),
+    accidents:       new Map(),
+    messageLog:      [],
+    densityMap:      new Map(),
+    pendingDispatch: [],
+    elapsed:         0,
+    simTime:         0,
+    aiLog:           isTraditional ? 'Traditional Fixed-Timer Active' : 'AI RL-PPO Optimizer Ready',
+    accidentCount:   0,
+    resolvedCount:   0,
+    totalWait:       0,
+    clearedCount:    0,
+    ambCleared:      0,
+    fireCleared:     0,
   };
 }
 
@@ -142,14 +153,16 @@ const YELLOW_DURATION = 3;
 
 export type SimulationEvent =
   | { type: 'spawn'; vehicle: Parameters<typeof spawnVehicle>[1] }
-  | { type: 'accident'; junctionId: string };
+  | { type: 'accident'; junctionId: string }
+  | { type: 'spawn_ambulance'; junctionId: string };
 
 export function tick(state: EngineState, dtReal: number, events: SimulationEvent[] = []): EngineState {
   const dt = dtReal * 3; // 3× sim speed
 
-  state.elapsed += dt;
+  state.elapsed += dtReal;
+  state.simTime += dt;
 
-  // 1. AI signal optimizer
+  // 1. Signal optimizer
   tickSignals(state, dt);
 
   // 2. Process external events (Spawns & Accidents)
@@ -158,45 +171,61 @@ export function tick(state: EngineState, dtReal: number, events: SimulationEvent
       spawnVehicle(state.vehicles, event.vehicle);
     } else if (event.type === 'accident') {
       handleAccidentTrigger(state, event.junctionId);
+    } else if (event.type === 'spawn_ambulance') {
+      handleManualAmbulance(state, event.junctionId);
     }
   }
 
-  // 3. Move vehicles
+  // 3. Process pending dispatch (traditional mode only — delayed manual dispatch)
+  if (state.isTraditional) {
+    const ready = state.pendingDispatch.filter(p => state.simTime >= p.dispatchAtSimTime);
+    state.pendingDispatch = state.pendingDispatch.filter(p => state.simTime < p.dispatchAtSimTime);
+    for (const pd of ready) {
+      const acc = state.accidents.get(pd.accidentId);
+      if (acc && !acc.resolved) {
+        doDispatch(state, acc);
+      }
+    }
+  }
+
+  // 4. Move vehicles
   tickVehicles(state, dt);
 
-  // 4. Update density
+  // 5. Update density
   updateDensity(state);
 
   return state;
 }
 
-function resolvedCount(state: EngineState): number {
-  let c = 0;
-  for (const a of state.accidents.values()) if (a.resolved) c++;
-  return c;
-}
-
 // ── Signal state machine ──────────────────────────────────────────────────
 
+const AI_MAX_GREEN = 90;  // AI can go up to 90s based on queue
+const AI_MIN_GREEN = 8;   // AI minimum green
+const AI_MAX_STALL = 55;  // Force switch after 55s to prevent starvation
+const TRAD_GREEN   = 30;  // Traditional: always exactly 30s
+
 function tickSignals(state: EngineState, dt: number) {
+  const starveNS = state.isTraditional ? tradPhaseStarveNS : aiPhaseStarveNS;
+  const starveEW = state.isTraditional ? tradPhaseStarveEW : aiPhaseStarveEW;
+
   for (const [jId, sig] of state.signals) {
     const j = JUNCTIONS.find(j => j.id === jId)!;
-    
+
     sig.timeRemainingS = Math.max(0, sig.timeRemainingS - dt);
 
     // Starvation tracking
     if (sig.phase === 'green') {
-      phaseStarveNS.set(jId, 0);
-      phaseStarveEW.set(jId, (phaseStarveEW.get(jId) ?? 0) + dt);
+      starveNS.set(jId, 0);
+      starveEW.set(jId, (starveEW.get(jId) ?? 0) + dt);
     } else if (sig.phase === 'red') {
-      phaseStarveEW.set(jId, 0);
-      phaseStarveNS.set(jId, (phaseStarveNS.get(jId) ?? 0) + dt);
+      starveEW.set(jId, 0);
+      starveNS.set(jId, (starveNS.get(jId) ?? 0) + dt);
     }
 
     // Count vehicles at this junction
     let qNS = 0, qEW = 0, hasEmerNS = false, hasEmerEW = false;
     for (const v of state.vehicles.values()) {
-      if (v.toJunctionId === jId && v.state === 'stopped') {
+      if (v.toJunctionId === jId && (v.state === 'stopped' || v.progress > 0.7)) {
         const fromJ = JUNCTIONS.find(j => j.id === v.fromJunctionId);
         const toJ   = JUNCTIONS.find(j => j.id === jId);
         if (fromJ && toJ) {
@@ -209,8 +238,32 @@ function tickSignals(state: EngineState, dt: number) {
     }
     sig.queueNS = qNS;
     sig.queueEW = qEW;
+    sig.hasEmergencyVehicle = hasEmerNS || hasEmerEW;
+    sig.emergencyDirection  = hasEmerNS ? 'NS' : hasEmerEW ? 'EW' : undefined;
 
-    // Transition: green → yellow → red → pick new green
+    // ── AI ONLY: Immediate emergency override (don't wait for phase end) ──
+    if (!state.isTraditional && sig.phase !== 'green') {
+      if (hasEmerNS || hasEmerEW) {
+        // Force green immediately for emergency
+        sig.phase = 'green';
+        sig.timeRemainingS = 25;
+        sig.greenDurationS = 25;
+        state.aiLog = `🚑 EMERGENCY OVERRIDE @ ${j.name} → INSTANT GREEN`;
+        continue; // skip normal phase logic
+      }
+    }
+
+    // ── AI ONLY: Anti-starvation hard override ──
+    if (!state.isTraditional && sig.phase === 'green') {
+      const stall = starveNS.get(jId) ?? 0;
+      if (stall > AI_MAX_STALL && sig.timeRemainingS > 5) {
+        // Force a quick yellow to switch
+        sig.phase = 'yellow';
+        sig.timeRemainingS = YELLOW_DURATION;
+        continue;
+      }
+    }
+
     if (sig.timeRemainingS <= 0) {
       if (sig.phase === 'green') {
         sig.phase = 'yellow';
@@ -220,28 +273,24 @@ function tickSignals(state: EngineState, dt: number) {
         sig.timeRemainingS = 2; // brief all-red
       } else {
         if (state.isTraditional) {
-          // Traditional: fixed 30s rotation, ignores emergencies
-          const prevPhase = sig.nextPredictedPhase; // use this as memory for which one to flip
-          const newPhase = prevPhase === 'red' ? 'green' : 'green'; // Wait, standard flip NS/EW
-          // To track NS/EW easily in traditional, we'll just toggle.
-          // Since we don't store direction, we just give 30s green.
+          // Traditional: fixed 30s green, no adaptation
           sig.phase = 'green';
-          sig.greenDurationS = 30;
-          sig.timeRemainingS = 30;
+          sig.greenDurationS = TRAD_GREEN;
+          sig.timeRemainingS = TRAD_GREEN;
           sig.nextPredictedPhase = 'red';
-          sig.nextPredictedDurationS = 30;
+          sig.nextPredictedDurationS = TRAD_GREEN;
           sig.hasEmergencyVehicle = false;
           sig.emergencyDirection = undefined;
         } else {
-          // AI optimizer picks next phase
+          // ── AI optimizer: RL-PPO heuristic ──
           const opt = getAIOptimization({
             junctionId: jId,
             queueNS: sig.queueNS,
             queueEW: sig.queueEW,
             hasEmergencyNS: hasEmerNS,
             hasEmergencyEW: hasEmerEW,
-            timeStarvedNS: phaseStarveNS.get(jId) ?? 0,
-            timeStarvedEW: phaseStarveEW.get(jId) ?? 0,
+            timeStarvedNS: starveNS.get(jId) ?? 0,
+            timeStarvedEW: starveEW.get(jId) ?? 0,
             capacity: j.capacity,
           });
 
@@ -250,28 +299,33 @@ function tickSignals(state: EngineState, dt: number) {
           sig.timeRemainingS = opt.greenDurationS;
           sig.nextPredictedPhase = 'red';
           sig.nextPredictedDurationS = 30;
-          sig.hasEmergencyVehicle = hasEmerNS || hasEmerEW;
-          sig.emergencyDirection   = hasEmerNS ? 'NS' : hasEmerEW ? 'EW' : undefined;
           state.aiLog = opt.reasoning;
 
-          // Sync nearby signals
-          propagatePhaseSync(state, jId, opt.phase);
+          // AI: Proactively sync neighboring signals for green-wave
+          propagateGreenWave(state, jId, opt.phase);
         }
       }
     }
   }
 }
 
-function propagatePhaseSync(state: EngineState, fromJId: string, phase: 'NS' | 'EW') {
-  if (state.isTraditional) return;
+/**
+ * AI GREEN WAVE: When a signal turns green, hint adjacent signals to prepare
+ * for the incoming wave of vehicles. This staggers timing so vehicles don't
+ * hit red at the next junction.
+ */
+function propagateGreenWave(state: EngineState, fromJId: string, phase: 'NS' | 'EW') {
   const neighbors = (GRAPH.get(fromJId) ?? []).map(e => e.toId);
-  for (const nId of neighbors.slice(0, 2)) {
+  for (const nId of neighbors) {
+    const neighborSig = state.signals.get(nId);
+    if (!neighborSig) continue;
+    // If neighbor is red and about to serve a long wait, give it a head-start nudge
+    if (neighborSig.phase === 'red' && neighborSig.timeRemainingS > 25) {
+      neighborSig.timeRemainingS = Math.max(5, neighborSig.timeRemainingS - 8);
+    }
     signalCommunicate(
-      state.messageLog,
-      fromJId,
-      nId,
-      'PHASE_SYNC',
-      { phase, sourceJunction: fromJId }
+      state.messageLog, fromJId, nId, 'PHASE_SYNC',
+      { phase, wave: true }
     );
   }
 }
@@ -289,9 +343,8 @@ export function generateSpawnEvent(): SimulationEvent | null {
   const road = getRoadBetween(path[0], path[1]);
   if (!road) return null;
 
-  const isAmb = Math.random() < 0.04;
-  const isFire = Math.random() < 0.02;
-  const type: VehicleState['type'] = isFire ? 'fire_engine' : isAmb ? 'ambulance' : 'car';
+  // Only cars in normal spawn – ambulances are only for accidents
+  const type: VehicleState['type'] = 'car';
 
   return {
     type: 'spawn',
@@ -303,9 +356,7 @@ export function generateSpawnEvent(): SimulationEvent | null {
       roadId: road.id,
       startLat: startJ.lat,
       startLon: startJ.lon,
-      color: type === 'fire_engine' ? '#f97316'
-           : type === 'ambulance'   ? '#ffffff'
-           : VEHICLE_COLORS[Math.floor(Math.random() * VEHICLE_COLORS.length)],
+      color: VEHICLE_COLORS[Math.floor(Math.random() * VEHICLE_COLORS.length)],
       pathJunctionIds: path,
       accidentId: undefined,
       targetHospitalId: undefined,
@@ -325,40 +376,41 @@ function tickVehicles(state: EngineState, dt: number) {
     if (v.state === 'arrived') { toRemove.push(vid); continue; }
 
     const fromJ = JUNCTIONS.find(j => j.id === v.fromJunctionId);
-    const toJ = JUNCTIONS.find(j => j.id === v.toJunctionId);
-    const road = ROADS.find(r => r.id === v.roadId);
-    
+    const toJ   = JUNCTIONS.find(j => j.id === v.toJunctionId);
+    const road  = ROADS.find(r => r.id === v.roadId);
+
     if (!toJ || !fromJ || !road) { toRemove.push(vid); continue; }
 
     const sig = state.signals.get(v.toJunctionId);
     const isEmergency = v.sirenActive;
     const signalGreen = !sig || sig.phase === 'green';
-    
-    // Progress calculation: speed is m/s. distanceM is total length.
-    const moveSpeed = isEmergency ? v.speed * 1.3 : v.speed;
-    const progressStep = (moveSpeed * dt) / Math.max(10, road.distanceM);
-    
-    const STOP_THRESHOLD = 0.90; // Stop at 90% of the road
+
+    // Speed: emergency vehicles move faster; traditional ambulance is slower (no priority)
+    let baseSpeed = v.speed;
+    if (isEmergency && !state.isTraditional) baseSpeed *= 1.5; // AI: fast with green wave
+    if (isEmergency && state.isTraditional)  baseSpeed *= 1.1; // Traditional: slightly faster but no clear path
+
+    const progressStep = (baseSpeed * dt) / Math.max(10, road.distanceM);
+    const STOP_THRESHOLD = 0.90;
 
     if (v.progress >= STOP_THRESHOLD && !signalGreen && !isEmergency) {
-      // Stop at red
       v.state = 'stopped';
       v.progress = STOP_THRESHOLD;
       v.waitSecs += dt;
     } else {
       v.state = 'moving';
-      v.progress += progressStep;
+      v.progress = Math.min(v.progress + progressStep, 1.0);
 
-      // Update lat/lon based on progress
+      // Update lat/lon along road path
       if (road.path && road.path.length >= 2) {
-         const numSegments = road.path.length - 1;
-         const scaledProgress = v.progress * numSegments;
-         const segmentIdx = Math.min(Math.floor(scaledProgress), numSegments - 1);
-         const segmentProgress = scaledProgress - segmentIdx;
-         const p1 = road.path[segmentIdx];
-         const p2 = road.path[segmentIdx + 1];
-         v.lat = p1[0] + (p2[0] - p1[0]) * segmentProgress;
-         v.lon = p1[1] + (p2[1] - p1[1]) * segmentProgress;
+        const numSegments = road.path.length - 1;
+        const scaledProgress = v.progress * numSegments;
+        const segIdx = Math.min(Math.floor(scaledProgress), numSegments - 1);
+        const segProg = scaledProgress - segIdx;
+        const p1 = road.path[segIdx];
+        const p2 = road.path[segIdx + 1];
+        v.lat = p1[0] + (p2[0] - p1[0]) * segProg;
+        v.lon = p1[1] + (p2[1] - p1[1]) * segProg;
       } else {
         v.lat = fromJ.lat + (toJ.lat - fromJ.lat) * v.progress;
         v.lon = fromJ.lon + (toJ.lon - fromJ.lon) * v.progress;
@@ -368,53 +420,94 @@ function tickVehicles(state: EngineState, dt: number) {
       if (v.progress >= 1) {
         const nextIdx = pathIdx + 1;
         if (nextIdx < pathIds.length - 1) {
-          // Move to next segment
           const nextFrom = pathIds[nextIdx];
           const nextTo   = pathIds[nextIdx + 1];
           const nextRoad = getRoadBetween(nextFrom, nextTo);
           if (nextRoad) {
-            v.fromJunctionId  = nextFrom;
-            v.toJunctionId    = nextTo;
-            v.roadId          = nextRoad.id;
+            v.fromJunctionId   = nextFrom;
+            v.toJunctionId     = nextTo;
+            v.roadId           = nextRoad.id;
             v.currentPathIndex = nextIdx;
             v.progress         = 0;
-            // Snapped to next start
             const nextFromJ = JUNCTIONS.find(j => j.id === nextFrom);
-            if(nextFromJ) {
-                v.lat = nextFromJ.lat;
-                v.lon = nextFromJ.lon;
-            }
+            if (nextFromJ) { v.lat = nextFromJ.lat; v.lon = nextFromJ.lon; }
           } else {
             v.state = 'arrived';
           }
         } else {
-          // Final destination
-          if (v.type === 'ambulance' && v.accidentId) {
-            const acc = state.accidents.get(v.accidentId!);
-            if (acc && !acc.resolved) {
-              acc.resolved = true;
-              state.resolvedCount++;
-              state.ambCleared++;
-              signalCommunicate(state.messageLog, vid, v.toJunctionId, 'EMERGENCY_DONE', {
-                vehicleType: 'ambulance', hospitalId: v.targetHospitalId
-              });
-            }
-          }
-          if (v.type === 'fire_engine' && v.accidentId) {
-            state.fireCleared++;
-            signalCommunicate(state.messageLog, vid, v.toJunctionId, 'EMERGENCY_DONE', {
-              vehicleType: 'fire_engine'
-            });
-          }
-          state.totalWait  += v.waitSecs;
-          state.clearedCount++;
-          v.state = 'arrived';
+          // ── Reached final destination ──
+          onVehicleArrived(state, vid, v);
         }
       }
     }
   }
 
   for (const id of toRemove) state.vehicles.delete(id);
+}
+
+/** Called when a vehicle reaches the end of its path */
+function onVehicleArrived(state: EngineState, vid: string, v: VehicleState) {
+  if (v.type === 'ambulance' && v.accidentId) {
+    const acc = state.accidents.get(v.accidentId!);
+
+    if (acc && !acc.resolved && v.targetHospitalId === undefined) {
+      // ── Phase 1: Ambulance reached accident site ──
+      // Mark accident resolved and send ambulance BACK to hospital
+      acc.resolved = true;
+      state.resolvedCount++;
+      signalCommunicate(state.messageLog, vid, v.toJunctionId, 'EMERGENCY_DONE', {
+        vehicleType: 'ambulance', phase: 'at_scene'
+      });
+
+      // Find nearest hospital to current position for return trip
+      getNearestHospital(v.lat, v.lon).then(hospital => {
+        const hospJunc = JUNCTIONS.find(j => j.id === hospital.nearestJunctionId) ?? JUNCTIONS[0];
+        const returnPath = findPath(v.toJunctionId, hospJunc.id);
+        if (returnPath.length >= 2) {
+          const returnRoad = getRoadBetween(returnPath[0], returnPath[1]);
+          if (returnRoad) {
+            // Re-use same vehicle for return trip
+            v.fromJunctionId   = returnPath[0];
+            v.toJunctionId     = returnPath[1];
+            v.roadId           = returnRoad.id;
+            v.currentPathIndex = 0;
+            v.progress         = 0;
+            v.pathJunctionIds  = returnPath;
+            v.targetHospitalId = hospital.id; // mark so we know it's the return leg
+            v.state            = 'moving';
+            return; // don't mark arrived yet
+          }
+        }
+        // Can't find return path, just clear
+        state.ambCleared++;
+        state.totalWait  += v.waitSecs;
+        state.clearedCount++;
+        v.state = 'arrived';
+      });
+      return; // wait for promise
+    } else if (acc && v.targetHospitalId !== undefined) {
+      // ── Phase 2: Ambulance returned to hospital ──
+      state.ambCleared++;
+      signalCommunicate(state.messageLog, vid, v.toJunctionId, 'EMERGENCY_DONE', {
+        vehicleType: 'ambulance', phase: 'returned_to_hospital'
+      });
+      state.totalWait  += v.waitSecs;
+      state.clearedCount++;
+      v.state = 'arrived';
+      return;
+    }
+  }
+
+  if (v.type === 'fire_engine' && v.accidentId) {
+    state.fireCleared++;
+    signalCommunicate(state.messageLog, vid, v.toJunctionId, 'EMERGENCY_DONE', {
+      vehicleType: 'fire_engine'
+    });
+  }
+
+  state.totalWait  += v.waitSecs;
+  state.clearedCount++;
+  v.state = 'arrived';
 }
 
 // ── Density calculation ───────────────────────────────────────────────────
@@ -424,7 +517,7 @@ function updateDensity(state: EngineState) {
   for (const v of state.vehicles.values()) {
     counts.set(v.roadId, (counts.get(v.roadId) ?? 0) + 1);
   }
-  const maxCap = 12;
+  const maxCap = 10;
   for (const r of ROADS) {
     const c = counts.get(r.id) ?? 0;
     state.densityMap.set(r.id, Math.min(1, c / maxCap));
@@ -437,7 +530,9 @@ async function handleAccidentTrigger(state: EngineState, junctionId: string) {
   const acc = await triggerAccident(state.accidents, junctionId);
   state.accidentCount++;
 
-  // Broadcast accident alert to neighbors
+  const jName = JUNCTIONS.find(j => j.id === junctionId)?.name ?? junctionId;
+
+  // Broadcast accident alert to all neighbors
   const neighbors = (GRAPH.get(junctionId) ?? []).map(e => e.toId);
   for (const nId of neighbors) {
     signalCommunicate(state.messageLog, junctionId, nId, 'ACCIDENT_ALERT', {
@@ -445,67 +540,113 @@ async function handleAccidentTrigger(state: EngineState, junctionId: string) {
     });
   }
 
-  // Find nearest hospital
+  if (state.isTraditional) {
+    // ── Traditional: Delayed dispatch (15-25 sim-seconds of "manual detection") ──
+    const delay = 15 + Math.random() * 10;
+    state.pendingDispatch.push({
+      accidentId: acc.id,
+      dispatchAtSimTime: state.simTime + delay,
+    });
+    // No path clearance, no AI optimization — just waiting
+  } else {
+    // ── AI: Immediate dispatch + path clearance + signal override ──
+    doDispatch(state, acc);
+
+    // AI proactively clears all signals along detected accident paths
+    const junc = JUNCTIONS.find(j => j.id === junctionId)!;
+    const hospital = await getNearestHospital(junc.lat, junc.lon);
+    const hospJunc = JUNCTIONS.find(j => j.id === hospital.nearestJunctionId) ?? JUNCTIONS[0];
+    const clearPath = findPath(hospJunc.id, junctionId); // hospital → accident (ambulance route)
+    if (clearPath.length >= 2) {
+      await requestPathClearance(state.signals, state.messageLog, `PRECLEAR-${acc.id}`, 'ambulance', clearPath);
+    }
+
+    state.aiLog = `🚨 AI DETECTED @ ${jName} — Instant dispatch + path cleared`;
+  }
+}
+
+/** Actually dispatch ambulance (and fire engine if critical) */
+async function doDispatch(state: EngineState, acc: AccidentEvent) {
+  const junctionId = acc.junctionId;
   const junc = JUNCTIONS.find(j => j.id === junctionId)!;
   const hospital = await getNearestHospital(junc.lat, junc.lon);
+  const hospJunc = JUNCTIONS.find(j => j.id === hospital.nearestJunctionId) ?? JUNCTIONS[0];
 
-  // Dispatch ambulance
+  // Path: hospital → accident
+  const path = findPath(hospJunc.id, junctionId);
+  if (path.length < 2) return;
+
   const { vehicleId: ambId } = await dispatchAmbulance(state.accidents, acc.id, hospital.id);
   acc.ambulanceId = ambId;
 
-  // Find path from accident to hospital
-  const hospJunc = JUNCTIONS.find(j => j.id === hospital.nearestJunctionId) ?? JUNCTIONS[0];
-  const path     = findPath(junctionId, hospJunc.id);
+  const road = getRoadBetween(path[0], path[1]);
+  if (road) {
+    await spawnVehicle(state.vehicles, {
+      id: ambId,
+      type: 'ambulance',
+      fromJunctionId: path[0],
+      toJunctionId:   path[1],
+      roadId: road.id,
+      startLat: hospJunc.lat,
+      startLon: hospJunc.lon,
+      color: '#ffffff',
+      pathJunctionIds: path,
+      accidentId: acc.id,
+      targetHospitalId: undefined, // undefined = still heading TO accident
+    });
+  }
 
-  if (path.length >= 2) {
-    if (!state.isTraditional) {
-      await requestPathClearance(state.signals, state.messageLog, ambId, 'ambulance', path);
-    }
-    const road = getRoadBetween(path[0], path[1]);
-    if (road) {
+  // Critical accidents also get a fire engine
+  if (acc.severity === 'critical') {
+    const { vehicleId: fireId } = await dispatchFireEngine(state.accidents, acc.id);
+    const fireRoad = getRoadBetween(path[0], path[1]);
+    if (fireRoad) {
       await spawnVehicle(state.vehicles, {
-        id: ambId,
-        type: 'ambulance',
+        id: fireId,
+        type: 'fire_engine',
         fromJunctionId: path[0],
         toJunctionId:   path[1],
-        roadId: road.id,
-        startLat: junc.lat,
-        startLon: junc.lon,
-        color: '#ffffff',
+        roadId: fireRoad.id,
+        startLat: hospJunc.lat,
+        startLon: hospJunc.lon,
+        color: '#f97316',
         pathJunctionIds: path,
         accidentId: acc.id,
         targetHospitalId: hospital.id,
       });
     }
   }
+}
 
-  // If critical — also dispatch fire engine
-  if (acc.severity === 'critical') {
-    const { vehicleId: fireId } = await dispatchFireEngine(state.accidents, acc.id);
-    if (path.length >= 2) {
-      if (!state.isTraditional) {
-        await requestPathClearance(state.signals, state.messageLog, fireId, 'fire_engine', path);
-      }
-      const road = getRoadBetween(path[0], path[1]);
-      if (road) {
-        await spawnVehicle(state.vehicles, {
-          id: fireId,
-          type: 'fire_engine',
-          fromJunctionId: path[0],
-          toJunctionId:   path[1],
-          roadId: road.id,
-          startLat: junc.lat,
-          startLon: junc.lon,
-          color: '#f97316',
-          pathJunctionIds: path,
-          accidentId: acc.id,
-          targetHospitalId: hospital.id,
-        });
-      }
-    }
-  }
+/** Manual ambulance spawn from nearest hospital to a given junction */
+async function handleManualAmbulance(state: EngineState, junctionId: string) {
+  const junc = JUNCTIONS.find(j => j.id === junctionId) ?? JUNCTIONS[0];
+  const hospital = await getNearestHospital(junc.lat, junc.lon);
+  const hospJunc = JUNCTIONS.find(j => j.id === hospital.nearestJunctionId) ?? JUNCTIONS[0];
+  const path = findPath(hospJunc.id, junctionId);
+  if (path.length < 2) return;
+
+  const road = getRoadBetween(path[0], path[1]);
+  if (!road) return;
+
+  const ambId = `MANUAL-AMB-${++vehicleIdCtr}`;
 
   if (!state.isTraditional) {
-    state.aiLog = `🚨 ACCIDENT at ${JUNCTIONS.find(j => j.id === junctionId)?.name} — Dispatching to ${hospital.name}`;
+    await requestPathClearance(state.signals, state.messageLog, ambId, 'ambulance', path);
+    state.aiLog = `🚑 Manual Ambulance dispatched from ${hospital.name} → ${junc.name}`;
   }
+
+  await spawnVehicle(state.vehicles, {
+    id: ambId,
+    type: 'ambulance',
+    fromJunctionId: path[0],
+    toJunctionId:   path[1],
+    roadId: road.id,
+    startLat: hospJunc.lat,
+    startLon: hospJunc.lon,
+    color: '#ffffff',
+    pathJunctionIds: path,
+    accidentId: undefined,
+    targetHospitalId: hospital.id,
+  });
 }
