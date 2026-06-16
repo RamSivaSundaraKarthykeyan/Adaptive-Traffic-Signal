@@ -107,3 +107,6 @@ coverage.xml
 *.py,cover
 .pc/
 .unit/
+
+# Videos
+*.mp4

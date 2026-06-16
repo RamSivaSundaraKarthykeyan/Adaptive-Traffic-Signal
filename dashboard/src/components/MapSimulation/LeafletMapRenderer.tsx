@@ -80,7 +80,7 @@ function signalColor(phase: string): string {
 function densityColor(d: number): string {
   if (d > 0.65) return '#ef4444';
   if (d > 0.30) return '#eab308';
-  return '#334155';
+  return '#94a3b8';
 }
 
 export default function LeafletMapRenderer({ engineState, frame, onSignalClick, selectedSignalId, isTraditional }: LeafletMapRendererProps) {
@@ -97,13 +97,13 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
     });
   }, []);
 
-  if (!mounted) return <div className="w-full h-[560px] bg-[#0c0f1d] animate-pulse"></div>;
+  if (!mounted) return <div className="w-full h-[560px] bg-[#f8fafc] animate-pulse"></div>;
 
   return (
-    <div className="relative w-full h-[560px] bg-[#0c0f1d]">
+    <div className="relative w-full h-[560px] bg-[#f8fafc]">
       {/* Title overlay */}
-      <div className="absolute top-3 left-3 z-[1000] bg-black/70 border border-gray-700/50 rounded-lg px-3 py-1.5 backdrop-blur-md">
-        <h3 className="text-white font-bold text-sm tracking-wide">
+      <div className="absolute top-3 left-3 z-[1000] bg-white/80 border border-gray-200/80 rounded-lg px-3 py-1.5 backdrop-blur-md shadow-sm">
+        <h3 className="text-gray-800 font-bold text-sm tracking-wide">
           {isTraditional ? 'Traditional Fixed Timing' : 'AI Adaptive Optimizer'}
         </h3>
       </div>
@@ -111,12 +111,12 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
       <MapContainer 
         center={MAP_CENTER} 
         zoom={ZOOM} 
-        style={{ height: '100%', width: '100%', backgroundColor: '#0c0f1d' }}
+        style={{ height: '100%', width: '100%', backgroundColor: '#f8fafc' }}
         zoomControl={false}
         attributionControl={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
 
         {/* Roads */}
@@ -139,9 +139,9 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
               positions={positions}
               color={color}
               weight={road.laneCount * 2 + 1}
-              opacity={density > 0.05 ? density * 0.5 + 0.3 : 0.2}
+              opacity={density > 0.05 ? density * 0.5 + 0.5 : 0.4}
             >
-              <Tooltip sticky className="bg-black/80 text-white border-gray-700">{road.name}</Tooltip>
+              <Tooltip sticky className="bg-white/90 text-gray-800 border-gray-200 font-medium">{road.name}</Tooltip>
             </Polyline>
           );
         })}
@@ -176,17 +176,17 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
               pathOptions={{
                 fillColor: hasAccident ? '#ef4444' : color,
                 fillOpacity: 1,
-                color: hasAccident ? '#ffffff' : '#0f172a',
+                color: hasAccident ? '#ffffff' : '#cbd5e1',
                 weight: 2,
               }}
               eventHandlers={{
                 click: () => onSignalClick(j.id)
               }}
             >
-              <Tooltip direction="top" offset={[0, -10]} permanent={hasAccident} className="bg-black/80 text-white border-gray-700 font-bold">
+              <Tooltip direction="top" offset={[0, -10]} permanent={hasAccident} className="bg-white/90 text-gray-800 border-gray-200 font-bold shadow-sm">
                 {hasAccident ? `⚠️ ACCIDENT: ${j.name}` : j.name}
                 <br/>
-                <span className="text-xs text-gray-400 font-normal">Q: {(sig?.queueNS??0) + (sig?.queueEW??0)} · {Math.ceil(sig?.timeRemainingS??0)}s</span>
+                <span className="text-xs text-gray-500 font-normal">Q: {(sig?.queueNS??0) + (sig?.queueEW??0)} · {Math.ceil(sig?.timeRemainingS??0)}s</span>
               </Tooltip>
             </CircleMarker>
           );
