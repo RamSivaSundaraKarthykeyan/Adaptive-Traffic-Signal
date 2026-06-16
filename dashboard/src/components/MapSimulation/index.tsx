@@ -351,8 +351,8 @@ export default function MapSimulation() {
       <div className="flex flex-col xl:flex-row gap-4">
 
         {/* Map panels */}
-        <div className="flex-1 flex flex-col md:flex-row gap-4">
-          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative">
+        <div className="flex-1 flex flex-col md:flex-row gap-4 items-start">
+          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative self-start">
             <MapRenderer
               engineState={aiDisplayState}
               frame={frame}
@@ -372,7 +372,7 @@ export default function MapSimulation() {
               </div>
             )}
           </div>
-          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative">
+          <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative self-start">
             <MapRenderer
               engineState={tradDisplayState}
               frame={frame}
@@ -415,7 +415,7 @@ export default function MapSimulation() {
               <div className="px-4 py-3 border-b border-gray-800 text-xs font-bold text-gray-400 uppercase tracking-wider">
                 Signal Status · AI vs Traditional
               </div>
-              <div className="overflow-y-auto divide-y divide-gray-800/60" style={{ maxHeight: '60vh' }}>
+              <div className="overflow-y-auto divide-y divide-gray-800/60" style={{ maxHeight: '60vh', overflowAnchor: 'none' }}>
                 {JUNCTIONS.map(j => {
                   const aiSig   = aiDisplayState.signals.get(j.id);
                   const tradSig = tradDisplayState.signals.get(j.id);
@@ -460,7 +460,7 @@ export default function MapSimulation() {
                   </span>
                 )}
               </div>
-              <div className="overflow-y-auto divide-y divide-gray-800/60" style={{ maxHeight: '60vh' }}>
+              <div className="overflow-y-auto divide-y divide-gray-800/60" style={{ maxHeight: '60vh', overflowAnchor: 'none' }}>
                 {accidentList.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-8 text-gray-600">
                     <CheckCircle2 size={24} />
