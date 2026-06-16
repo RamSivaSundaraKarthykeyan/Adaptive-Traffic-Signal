@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import MapRenderer from './LeafletMapRenderer';
 import SignalPopup from './SignalPopup';
 import SignalCommunicationPanel from './SignalCommunicationPanel';
-import { initEngine, tick, EngineState } from './SimulationEngine';
+import { initEngine, tick, EngineState, generateSpawnEvent, SimulationEvent } from './SimulationEngine';
 import { JUNCTIONS, HOSPITALS } from './data/chennaiData';
 
 // ── Metric card ───────────────────────────────────────────────────────────
@@ -85,15 +85,46 @@ export default function MapSimulation() {
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
   const [tab, setTab]                   = useState<'map' | 'accidents'>('map');
 
+  // ── Coordinator State ───────────────────────────────────────────────
+  const SPAWN_INTERVAL = 1.5;
+  const ACCIDENT_CHANCE = 0.001;
+  const MAX_CONCURRENT_ACCIDENTS = 2;
+  const coordinatorState = useRef({
+    nextSpawnT: 0,
+  });
+
   // ── Animation loop ──────────────────────────────────────────────────
   const loop = useCallback((ts: number) => {
     if (!isRunning) return;
-    const dt = Math.min((ts - lastTsRef.current) / 1000, 0.1);
+    const dtReal = Math.min((ts - lastTsRef.current) / 1000, 0.1);
+    const dtSim = dtReal * 3;
     lastTsRef.current = ts;
     frameRef.current++;
 
-    aiEngineRef.current = tick(aiEngineRef.current, dt);
-    tradEngineRef.current = tick(tradEngineRef.current, dt);
+    const events: SimulationEvent[] = [];
+
+    // Coordinator: Generate Spawn Event
+    coordinatorState.current.nextSpawnT -= dtSim;
+    if (coordinatorState.current.nextSpawnT <= 0) {
+      coordinatorState.current.nextSpawnT = SPAWN_INTERVAL + (Math.random() - 0.5);
+      const spawnEvent = generateSpawnEvent();
+      if (spawnEvent) events.push(spawnEvent);
+    }
+
+    // Coordinator: Generate Accident Event
+    let resolvedCount = 0;
+    for (const a of aiEngineRef.current.accidents.values()) { if (a.resolved) resolvedCount++; }
+    if ((aiEngineRef.current.accidents.size - resolvedCount) < MAX_CONCURRENT_ACCIDENTS) {
+      for (const j of JUNCTIONS) {
+        if (Math.random() < ACCIDENT_CHANCE * dtSim) {
+          events.push({ type: 'accident', junctionId: j.id });
+          break;
+        }
+      }
+    }
+
+    aiEngineRef.current = tick(aiEngineRef.current, dtReal, events);
+    tradEngineRef.current = tick(tradEngineRef.current, dtReal, events);
 
     // Sync display every 2 frames to avoid state-flood
     if (frameRef.current % 2 === 0) {
@@ -250,11 +281,15 @@ export default function MapSimulation() {
                isTraditional={false}
              />
              {selectedJunctionId && (
-               <SignalPopup
-                 junctionId={selectedJunctionId}
-                 signalState={selectedSignal}
-                 onClose={() => setSelectedJunctionId(null)}
-               />
+               <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-[9999] flex items-center justify-center">
+                 <div className="pointer-events-auto">
+                   <SignalPopup
+                     junctionId={selectedJunctionId}
+                     signalState={selectedSignal}
+                     onClose={() => setSelectedJunctionId(null)}
+                   />
+                 </div>
+               </div>
              )}
           </div>
           <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative">

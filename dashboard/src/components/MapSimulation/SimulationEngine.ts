@@ -138,13 +138,13 @@ export function initEngine(isTraditional: boolean = false): EngineState {
 
 // ── Main tick ─────────────────────────────────────────────────────────────
 
-const SPAWN_INTERVAL   = 1.5;  // INCREASED SPAWN RATE (lower interval)
-let   nextSpawnT       = 0;
-const ACCIDENT_CHANCE  = 0.001; // DECREASED ACCIDENT CHANCE
-const YELLOW_DURATION  = 3;     // seconds
-const MAX_CONCURRENT_ACCIDENTS = 2; // CAP ACCIDENTS TO 2
+const YELLOW_DURATION = 3;
 
-export function tick(state: EngineState, dtReal: number): EngineState {
+export type SimulationEvent =
+  | { type: 'spawn'; vehicle: Parameters<typeof spawnVehicle>[1] }
+  | { type: 'accident'; junctionId: string };
+
+export function tick(state: EngineState, dtReal: number, events: SimulationEvent[] = []): EngineState {
   const dt = dtReal * 3; // 3× sim speed
 
   state.elapsed += dt;
@@ -152,11 +152,13 @@ export function tick(state: EngineState, dtReal: number): EngineState {
   // 1. AI signal optimizer
   tickSignals(state, dt);
 
-  // 2. Spawn traffic
-  nextSpawnT -= dt;
-  if (nextSpawnT <= 0) {
-    nextSpawnT = SPAWN_INTERVAL + (Math.random() - 0.5);
-    spawnTraffic(state);
+  // 2. Process external events (Spawns & Accidents)
+  for (const event of events) {
+    if (event.type === 'spawn') {
+      spawnVehicle(state.vehicles, event.vehicle);
+    } else if (event.type === 'accident') {
+      handleAccidentTrigger(state, event.junctionId);
+    }
   }
 
   // 3. Move vehicles
@@ -164,16 +166,6 @@ export function tick(state: EngineState, dtReal: number): EngineState {
 
   // 4. Update density
   updateDensity(state);
-
-  // 5. Maybe trigger accident
-  if ((state.accidents.size - resolvedCount(state)) < MAX_CONCURRENT_ACCIDENTS) {
-    for (const j of JUNCTIONS) {
-      if (Math.random() < ACCIDENT_CHANCE * dt) {
-        handleAccidentTrigger(state, j.id);
-        break;
-      }
-    }
-  }
 
   return state;
 }
@@ -286,36 +278,39 @@ function propagatePhaseSync(state: EngineState, fromJId: string, phase: 'NS' | '
 
 // ── Traffic spawning ──────────────────────────────────────────────────────
 
-function spawnTraffic(state: EngineState) {
+export function generateSpawnEvent(): SimulationEvent | null {
   const startJ = JUNCTIONS[Math.floor(Math.random() * JUNCTIONS.length)];
   let   endJ   = JUNCTIONS[Math.floor(Math.random() * JUNCTIONS.length)];
   if (endJ.id === startJ.id) endJ = JUNCTIONS[(JUNCTIONS.indexOf(startJ) + 1) % JUNCTIONS.length];
 
   const path = findPath(startJ.id, endJ.id);
-  if (path.length < 2) return;
+  if (path.length < 2) return null;
 
   const road = getRoadBetween(path[0], path[1]);
-  if (!road) return;
+  if (!road) return null;
 
   const isAmb = Math.random() < 0.04;
   const isFire = Math.random() < 0.02;
   const type: VehicleState['type'] = isFire ? 'fire_engine' : isAmb ? 'ambulance' : 'car';
 
-  spawnVehicle(state.vehicles, {
-    id: `V-${++vehicleIdCtr}`,
-    type,
-    fromJunctionId: path[0],
-    toJunctionId:   path[1],
-    roadId: road.id,
-    startLat: startJ.lat,
-    startLon: startJ.lon,
-    color: type === 'fire_engine' ? '#f97316'
-         : type === 'ambulance'   ? '#ffffff'
-         : VEHICLE_COLORS[Math.floor(Math.random() * VEHICLE_COLORS.length)],
-    pathJunctionIds: path,
-    accidentId: undefined,
-    targetHospitalId: undefined,
-  });
+  return {
+    type: 'spawn',
+    vehicle: {
+      id: `V-${++vehicleIdCtr}`,
+      type,
+      fromJunctionId: path[0],
+      toJunctionId:   path[1],
+      roadId: road.id,
+      startLat: startJ.lat,
+      startLon: startJ.lon,
+      color: type === 'fire_engine' ? '#f97316'
+           : type === 'ambulance'   ? '#ffffff'
+           : VEHICLE_COLORS[Math.floor(Math.random() * VEHICLE_COLORS.length)],
+      pathJunctionIds: path,
+      accidentId: undefined,
+      targetHospitalId: undefined,
+    }
+  };
 }
 
 // ── Vehicle movement ──────────────────────────────────────────────────────
@@ -355,8 +350,19 @@ function tickVehicles(state: EngineState, dt: number) {
       v.progress += progressStep;
 
       // Update lat/lon based on progress
-      v.lat = fromJ.lat + (toJ.lat - fromJ.lat) * v.progress;
-      v.lon = fromJ.lon + (toJ.lon - fromJ.lon) * v.progress;
+      if (road.path && road.path.length >= 2) {
+         const numSegments = road.path.length - 1;
+         const scaledProgress = v.progress * numSegments;
+         const segmentIdx = Math.min(Math.floor(scaledProgress), numSegments - 1);
+         const segmentProgress = scaledProgress - segmentIdx;
+         const p1 = road.path[segmentIdx];
+         const p2 = road.path[segmentIdx + 1];
+         v.lat = p1[0] + (p2[0] - p1[0]) * segmentProgress;
+         v.lon = p1[1] + (p2[1] - p1[1]) * segmentProgress;
+      } else {
+        v.lat = fromJ.lat + (toJ.lat - fromJ.lat) * v.progress;
+        v.lon = fromJ.lon + (toJ.lon - fromJ.lon) * v.progress;
+      }
 
       // Arrived at junction
       if (v.progress >= 1) {
