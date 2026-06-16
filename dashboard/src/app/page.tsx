@@ -10,8 +10,8 @@ import TrafficSimulation from '@/components/TrafficSimulation';
 type Tab = 'simulation' | 'vehicle_detection' | 'accident_detection';
 
 const NAV_ITEMS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'simulation',         label: 'AI Simulation',            icon: <Layers size={19} /> },
-  { id: 'vehicle_detection',  label: 'Vehicle Detection',        icon: <Radio size={19} /> },
+  { id: 'simulation', label: 'AI Simulation', icon: <Layers size={19} /> },
+  { id: 'vehicle_detection', label: 'Vehicle Detection', icon: <Radio size={19} /> },
   { id: 'accident_detection', label: 'Accident Detection Model', icon: <AlertTriangle size={19} /> },
 ];
 
@@ -80,7 +80,7 @@ export default function Home() {
             "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium border",
             backendOnline === true ? "bg-green-500/10 border-green-500/20 text-green-400"
               : backendOnline === false ? "bg-red-500/10 border-red-500/20 text-red-400"
-              : "bg-gray-800/60 border-gray-700/50 text-gray-500"
+                : "bg-gray-800/60 border-gray-700/50 text-gray-500"
           )}>
             {backendOnline === true ? <Wifi size={14} /> : backendOnline === false ? <WifiOff size={14} /> : <Cpu size={14} className="animate-pulse" />}
             <div className="flex-1">
@@ -88,12 +88,7 @@ export default function Home() {
               <div className="opacity-60">{backendOnline === true ? 'localhost:8000' : backendOnline === false ? 'Offline – start app.py' : 'Checking...'}</div>
             </div>
           </div>
-          {/* GPU Status */}
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-800/80 text-xs text-gray-400">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span>CUDA Active</span>
-            <span className="ml-auto text-gray-600 font-mono">best.pt</span>
-          </div>
+
         </div>
       </aside>
 

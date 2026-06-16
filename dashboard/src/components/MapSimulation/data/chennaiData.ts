@@ -39,27 +39,28 @@ export interface Road {
   name: string;
   distanceM: number; // meters
   laneCount: number;
+  path?: [number, number][]; // Intermediate waypoints for curving along roads
 }
 
 export const ROADS: Road[] = [
-  { id: 'R01', from: 'J01', to: 'J02', name: 'Inner Ring Road E',        distanceM: 680, laneCount: 3 },
-  { id: 'R02', from: 'J02', to: 'J04', name: 'Anna Nagar 2nd Ave',       distanceM: 750, laneCount: 2 },
-  { id: 'R03', from: 'J02', to: 'J05', name: 'Anna Nagar Main Rd',       distanceM: 920, laneCount: 2 },
-  { id: 'R04', from: 'J02', to: 'J06', name: 'Shanthi Colony Rd',        distanceM: 500, laneCount: 2 },
-  { id: 'R05', from: 'J03', to: 'J02', name: '2nd Ave South Seg',        distanceM: 840, laneCount: 2 },
-  { id: 'R06', from: 'J03', to: 'J04', name: 'KK Nagar Link',            distanceM: 620, laneCount: 2 },
-  { id: 'R07', from: 'J04', to: 'J05', name: '12th Main',                distanceM: 480, laneCount: 2 },
-  { id: 'R08', from: 'J04', to: 'J09', name: 'Anna Nagar East Rd',       distanceM: 560, laneCount: 2 },
-  { id: 'R09', from: 'J05', to: 'J06', name: 'Blue Star to Shanthi',     distanceM: 420, laneCount: 2 },
-  { id: 'R10', from: 'J01', to: 'J08', name: 'IRR West Seg',             distanceM: 580, laneCount: 3 },
-  { id: 'R11', from: 'J08', to: 'J07', name: 'Poonamallee Hwy S',        distanceM: 1300, laneCount: 3 },
-  { id: 'R12', from: 'J07', to: 'J10', name: 'Saligramam Link',          distanceM: 1100, laneCount: 2 },
-  { id: 'R13', from: 'J01', to: 'J03', name: 'IRR to 2nd Ave',           distanceM: 700, laneCount: 2 },
-  { id: 'R14', from: 'J06', to: 'J05', name: 'Shanthi–Blue Star Back',   distanceM: 420, laneCount: 2 },
-  { id: 'R15', from: 'J09', to: 'J05', name: 'AN East Return',           distanceM: 560, laneCount: 2 },
-  { id: 'R16', from: 'J10', to: 'J07', name: 'Saligramam Return',        distanceM: 1100, laneCount: 2 },
-  { id: 'R17', from: 'J08', to: 'J01', name: 'PRR North',                distanceM: 580, laneCount: 3 },
-  { id: 'R18', from: 'J03', to: 'J07', name: '2nd Ave to CMBT',          distanceM: 1050, laneCount: 2 },
+  { id: 'R01', from: 'J01', to: 'J02', name: 'Inner Ring Road E',        distanceM: 680, laneCount: 3, path: [[13.0855, 80.1977], [13.0867, 80.1977], [13.0867, 80.2044]] },
+  { id: 'R02', from: 'J02', to: 'J04', name: 'Anna Nagar 2nd Ave',       distanceM: 750, laneCount: 2, path: [[13.0867, 80.2044], [13.0867, 80.2120], [13.0830, 80.2120]] },
+  { id: 'R03', from: 'J02', to: 'J05', name: 'Anna Nagar Main Rd',       distanceM: 920, laneCount: 2, path: [[13.0867, 80.2044], [13.0871, 80.2044], [13.0871, 80.2147]] },
+  { id: 'R04', from: 'J02', to: 'J06', name: 'Shanthi Colony Rd',        distanceM: 500, laneCount: 2, path: [[13.0867, 80.2044], [13.0910, 80.2044], [13.0910, 80.2080]] },
+  { id: 'R05', from: 'J03', to: 'J02', name: '2nd Ave South Seg',        distanceM: 840, laneCount: 2, path: [[13.0791, 80.2058], [13.0791, 80.2044], [13.0867, 80.2044]] },
+  { id: 'R06', from: 'J03', to: 'J04', name: 'KK Nagar Link',            distanceM: 620, laneCount: 2, path: [[13.0791, 80.2058], [13.0791, 80.2120], [13.0830, 80.2120]] },
+  { id: 'R07', from: 'J04', to: 'J05', name: '12th Main',                distanceM: 480, laneCount: 2, path: [[13.0830, 80.2120], [13.0871, 80.2120], [13.0871, 80.2147]] },
+  { id: 'R08', from: 'J04', to: 'J09', name: 'Anna Nagar East Rd',       distanceM: 560, laneCount: 2, path: [[13.0830, 80.2120], [13.0796, 80.2120], [13.0796, 80.2175]] },
+  { id: 'R09', from: 'J05', to: 'J06', name: 'Blue Star to Shanthi',     distanceM: 420, laneCount: 2, path: [[13.0871, 80.2147], [13.0910, 80.2147], [13.0910, 80.2080]] },
+  { id: 'R10', from: 'J01', to: 'J08', name: 'IRR West Seg',             distanceM: 580, laneCount: 3, path: [[13.0855, 80.1977], [13.0815, 80.1977], [13.0815, 80.1965]] },
+  { id: 'R11', from: 'J08', to: 'J07', name: 'Poonamallee Hwy S',        distanceM: 1300, laneCount: 3, path: [[13.0815, 80.1965], [13.0694, 80.1965], [13.0694, 80.1977]] },
+  { id: 'R12', from: 'J07', to: 'J10', name: 'Saligramam Link',          distanceM: 1100, laneCount: 2, path: [[13.0694, 80.1977], [13.0694, 80.1956], [13.0597, 80.1956]] },
+  { id: 'R13', from: 'J01', to: 'J03', name: 'IRR to 2nd Ave',           distanceM: 700, laneCount: 2, path: [[13.0855, 80.1977], [13.0791, 80.1977], [13.0791, 80.2058]] },
+  { id: 'R14', from: 'J06', to: 'J05', name: 'Shanthi–Blue Star Back',   distanceM: 420, laneCount: 2, path: [[13.0910, 80.2080], [13.0910, 80.2147], [13.0871, 80.2147]] },
+  { id: 'R15', from: 'J09', to: 'J05', name: 'AN East Return',           distanceM: 560, laneCount: 2, path: [[13.0796, 80.2175], [13.0796, 80.2147], [13.0871, 80.2147]] },
+  { id: 'R16', from: 'J10', to: 'J07', name: 'Saligramam Return',        distanceM: 1100, laneCount: 2, path: [[13.0597, 80.1956], [13.0694, 80.1956], [13.0694, 80.1977]] },
+  { id: 'R17', from: 'J08', to: 'J01', name: 'PRR North',                distanceM: 580, laneCount: 3, path: [[13.0815, 80.1965], [13.0855, 80.1965], [13.0855, 80.1977]] },
+  { id: 'R18', from: 'J03', to: 'J07', name: '2nd Ave to CMBT',          distanceM: 1050, laneCount: 2, path: [[13.0791, 80.2058], [13.0694, 80.2058], [13.0694, 80.1977]] },
 ];
 
 // ── Hospital definitions ───────────────────────────────────────────────────

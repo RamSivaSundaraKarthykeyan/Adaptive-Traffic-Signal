@@ -128,10 +128,15 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
           const density = engineState.densityMap.get(road.id) ?? 0;
           const color = densityColor(density);
 
+          // Use path waypoints if available, else just a straight line
+          const positions: [number, number][] = road.path && road.path.length >= 2
+            ? road.path
+            : [[fromJ.lat, fromJ.lon], [toJ.lat, toJ.lon]];
+
           return (
             <Polyline
               key={road.id}
-              positions={[[fromJ.lat, fromJ.lon], [toJ.lat, toJ.lon]]}
+              positions={positions}
               color={color}
               weight={road.laneCount * 2 + 1}
               opacity={density > 0.05 ? density * 0.5 + 0.3 : 0.2}
