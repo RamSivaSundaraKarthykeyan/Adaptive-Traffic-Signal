@@ -19,11 +19,11 @@ function MetricCard({
   highlight?: boolean;
 }) {
   const colors: Record<string, string> = {
-    blue:    'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    green:   'text-green-400 bg-green-500/10 border-green-500/20',
-    red:     'text-red-400 bg-red-500/10 border-red-500/20',
-    orange:  'text-orange-400 bg-orange-500/10 border-orange-500/20',
-    indigo:  'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    green: 'text-green-400 bg-green-500/10 border-green-500/20',
+    red: 'text-red-400 bg-red-500/10 border-red-500/20',
+    orange: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
+    indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
   };
   return (
@@ -62,8 +62,8 @@ function AccidentLogItem({ junctionId, severity, resolved, timestamp, ambulanceI
           <span className={cn(
             'px-1.5 py-0.5 rounded text-[9px] font-bold',
             severity === 'critical' ? 'bg-red-900/50 text-red-400' :
-            severity === 'moderate' ? 'bg-orange-900/50 text-orange-400' :
-            'bg-yellow-900/50 text-yellow-400'
+              severity === 'moderate' ? 'bg-orange-900/50 text-orange-400' :
+                'bg-yellow-900/50 text-yellow-400'
           )}>{severity}</span>
           {ambulanceId && <span className="text-gray-600">AMB dispatched</span>}
         </div>
@@ -83,27 +83,27 @@ function AccidentLogItem({ junctionId, severity, resolved, timestamp, ambulanceI
 
 // ── Root component ────────────────────────────────────────────────────────
 export default function MapSimulation() {
-  const aiEngineRef   = useRef<EngineState>(initEngine(false));
+  const aiEngineRef = useRef<EngineState>(initEngine(false));
   const tradEngineRef = useRef<EngineState>(initEngine(true));
-  const rafRef      = useRef<number>(0);
-  const lastTsRef   = useRef<number>(0);
-  const frameRef    = useRef<number>(0);
+  const rafRef = useRef<number>(0);
+  const lastTsRef = useRef<number>(0);
+  const frameRef = useRef<number>(0);
 
   const [aiDisplayState, setAiDisplayState] = useState<EngineState>(() => initEngine(false));
   const [tradDisplayState, setTradDisplayState] = useState<EngineState>(() => initEngine(true));
-  const [frame, setFrame]               = useState(0);
-  const [isRunning, setIsRunning]       = useState(true);
+  const [frame, setFrame] = useState(0);
+  const [isRunning, setIsRunning] = useState(true);
   const [selectedJunctionId, setSelectedJunctionId] = useState<string | null>(null);
-  const [tab, setTab]                   = useState<'junctions' | 'accidents'>('junctions');
+  const [tab, setTab] = useState<'junctions' | 'accidents'>('junctions');
   // Flash state for metrics
-  const [ambFlash, setAmbFlash]         = useState(false);
-  const [fireFlash, setFireFlash]       = useState(false);
-  const prevAmbRef  = useRef(0);
+  const [ambFlash, setAmbFlash] = useState(false);
+  const [fireFlash, setFireFlash] = useState(false);
+  const prevAmbRef = useRef(0);
   const prevFireRef = useRef(0);
 
   // ── Coordinator state ───────────────────────────────────────────────
-  const SPAWN_INTERVAL      = 1.8;
-  const ACCIDENT_CHANCE     = 0.0008;
+  const SPAWN_INTERVAL = 1.8;
+  const ACCIDENT_CHANCE = 0.0008;
   const MAX_ACTIVE_ACCIDENTS = 2;
   const coordinatorRef = useRef({ nextSpawnT: 0 });
 
@@ -152,25 +152,25 @@ export default function MapSimulation() {
       }
     }
 
-    aiEngineRef.current   = tick(aiEngineRef.current, dtReal, events);
+    aiEngineRef.current = tick(aiEngineRef.current, dtReal, events);
     tradEngineRef.current = tick(tradEngineRef.current, dtReal, events);
 
     // Every 2 frames sync display state
     if (frameRef.current % 2 === 0) {
       setAiDisplayState({
         ...aiEngineRef.current,
-        signals:    new Map(aiEngineRef.current.signals),
-        vehicles:   new Map(aiEngineRef.current.vehicles),
-        accidents:  new Map(aiEngineRef.current.accidents),
+        signals: new Map(aiEngineRef.current.signals),
+        vehicles: new Map(aiEngineRef.current.vehicles),
+        accidents: new Map(aiEngineRef.current.accidents),
         messageLog: [...aiEngineRef.current.messageLog],
         densityMap: new Map(aiEngineRef.current.densityMap),
         pendingDispatch: [...aiEngineRef.current.pendingDispatch],
       });
       setTradDisplayState({
         ...tradEngineRef.current,
-        signals:    new Map(tradEngineRef.current.signals),
-        vehicles:   new Map(tradEngineRef.current.vehicles),
-        accidents:  new Map(tradEngineRef.current.accidents),
+        signals: new Map(tradEngineRef.current.signals),
+        vehicles: new Map(tradEngineRef.current.vehicles),
+        accidents: new Map(tradEngineRef.current.accidents),
         messageLog: [...tradEngineRef.current.messageLog],
         densityMap: new Map(tradEngineRef.current.densityMap),
         pendingDispatch: [...tradEngineRef.current.pendingDispatch],
@@ -205,7 +205,7 @@ export default function MapSimulation() {
 
   // ── Helpers ─────────────────────────────────────────────────────────
   const fmtTime = (s: number) => `${Math.floor(s / 60)}m ${Math.floor(s % 60)}s`;
-  const avgWaitAi   = aiDisplayState.clearedCount > 0
+  const avgWaitAi = aiDisplayState.clearedCount > 0
     ? (aiDisplayState.totalWait / aiDisplayState.clearedCount).toFixed(1) : '–';
   const avgWaitTrad = tradDisplayState.clearedCount > 0
     ? (tradDisplayState.totalWait / tradDisplayState.clearedCount).toFixed(1) : '–';
@@ -216,7 +216,7 @@ export default function MapSimulation() {
 
   const restart = () => {
     cancelAnimationFrame(rafRef.current);
-    aiEngineRef.current   = initEngine(false);
+    aiEngineRef.current = initEngine(false);
     tradEngineRef.current = initEngine(true);
     setAiDisplayState(initEngine(false));
     setTradDisplayState(initEngine(true));
@@ -333,14 +333,14 @@ export default function MapSimulation() {
 
       {/* ── AI advantage banner ── */}
       {aiDisplayState.clearedCount > 5 && tradDisplayState.clearedCount > 5 && (() => {
-        const aiAvg   = aiDisplayState.totalWait   / aiDisplayState.clearedCount;
+        const aiAvg = aiDisplayState.totalWait / aiDisplayState.clearedCount;
         const tradAvg = tradDisplayState.totalWait / tradDisplayState.clearedCount;
-        const diff    = tradAvg - aiAvg;
+        const diff = tradAvg - aiAvg;
         if (diff > 0.5) {
           return (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
               <Zap size={13} className="animate-pulse" />
-              AI is saving <span className="font-black mx-1">{diff.toFixed(1)}s</span> per vehicle over Traditional · {((diff/tradAvg)*100).toFixed(0)}% improvement
+              AI is saving <span className="font-black mx-1">{diff.toFixed(1)}s</span> per vehicle over Traditional · {((diff / tradAvg) * 100).toFixed(0)}% improvement
             </div>
           );
         }
@@ -350,7 +350,7 @@ export default function MapSimulation() {
       {/* ── Main content ── */}
       <div className="flex flex-col xl:flex-row gap-4">
 
-        {/* Map panels */}
+        {/* Map panels, */}
         <div className="flex-1 flex flex-col md:flex-row gap-4 items-start">
           <div className="flex-1 rounded-2xl border border-gray-800 bg-[#0c0f1d] overflow-hidden relative self-start">
             <MapRenderer
@@ -376,7 +376,7 @@ export default function MapSimulation() {
             <MapRenderer
               engineState={tradDisplayState}
               frame={frame}
-              onSignalClick={() => {}}
+              onSignalClick={() => { }}
               selectedSignalId={null}
               isTraditional={true}
             />
@@ -417,9 +417,9 @@ export default function MapSimulation() {
               </div>
               <div className="overflow-y-auto divide-y divide-gray-800/60" style={{ maxHeight: '60vh', overflowAnchor: 'none' }}>
                 {JUNCTIONS.map(j => {
-                  const aiSig   = aiDisplayState.signals.get(j.id);
+                  const aiSig = aiDisplayState.signals.get(j.id);
                   const tradSig = tradDisplayState.signals.get(j.id);
-                  const aiPhase   = aiSig?.phase ?? 'red';
+                  const aiPhase = aiSig?.phase ?? 'red';
                   const tradPhase = tradSig?.phase ?? 'red';
                   const phaseColor = (p: string) =>
                     p === 'green' ? 'bg-green-500' : p === 'yellow' ? 'bg-yellow-500' : 'bg-red-500';
