@@ -27,6 +27,14 @@ app.add_middleware(
 # --- LOAD MODELS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
+DATASET_DIR = os.path.join(BASE_DIR, "data", "dataset")
+
+# Check if dataset exists and warn if missing
+if not os.path.exists(DATASET_DIR) or not any(f.endswith(('.mp4', '.avi')) for f in os.listdir(DATASET_DIR) if os.path.isfile(os.path.join(DATASET_DIR, f))):
+    print("\n" + "="*60)
+    print("WARNING: Traffic video dataset not found in data/dataset/")
+    print("Please run 'python download_dataset.py' to download it.")
+    print("="*60 + "\n")
 
 print("[v] Loading models for UI...")
 
