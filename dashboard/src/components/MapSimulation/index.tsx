@@ -106,6 +106,10 @@ export default function MapSimulation() {
   const ACCIDENT_CHANCE = 0.0008;
   const MAX_ACTIVE_ACCIDENTS = 2;
   const coordinatorRef = useRef({ nextSpawnT: 0 });
+  const [maxVehicles, setMaxVehicles] = useState(50);
+  const maxVehiclesRef = useRef(50);
+  // keep a ref so the animation loop (closure) always reads the latest value
+  useEffect(() => { maxVehiclesRef.current = maxVehicles; }, [maxVehicles]);
 
   // ── Manual trigger handlers ─────────────────────────────────────────
   const triggerManualAccident = useCallback(() => {
@@ -132,12 +136,17 @@ export default function MapSimulation() {
 
     const events: SimulationEvent[] = [];
 
-    // Spawn traffic
+    // Spawn traffic — respect the per-map vehicle cap
     coordinatorRef.current.nextSpawnT -= dtSim;
     if (coordinatorRef.current.nextSpawnT <= 0) {
       coordinatorRef.current.nextSpawnT = SPAWN_INTERVAL + (Math.random() - 0.5);
-      const ev = generateSpawnEvent();
-      if (ev) events.push(ev);
+      // Only spawn if neither map is over the cap (both share the same event)
+      const aiCount   = aiEngineRef.current.vehicles.size;
+      const tradCount = tradEngineRef.current.vehicles.size;
+      if (aiCount < maxVehiclesRef.current && tradCount < maxVehiclesRef.current) {
+        const ev = generateSpawnEvent();
+        if (ev) events.push(ev);
+      }
     }
 
     // Random accidents (shared between both engines for fair comparison)
@@ -261,6 +270,22 @@ export default function MapSimulation() {
         >
           <Siren size={14} /> Ambulance
         </button>
+
+        {/* Max vehicles dropdown */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/60 border border-gray-700/50 rounded-xl flex-shrink-0">
+          <Car size={13} className="text-gray-400" />
+          <label htmlFor="max-vehicles-select" className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide whitespace-nowrap">Max Vehicles</label>
+          <select
+            id="max-vehicles-select"
+            value={maxVehicles}
+            onChange={e => setMaxVehicles(Number(e.target.value))}
+            className="bg-transparent text-gray-200 text-xs font-bold outline-none cursor-pointer"
+          >
+            {[10, 25, 50, 100, 200].map(n => (
+              <option key={n} value={n} className="bg-gray-900 text-gray-200">{n}</option>
+            ))}
+          </select>
+        </div>
 
         <button
           onClick={() => setIsRunning(v => !v)}

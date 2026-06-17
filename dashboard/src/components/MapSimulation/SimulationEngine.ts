@@ -107,21 +107,45 @@ const VEHICLE_COLORS = ['#38bdf8','#818cf8','#34d399','#fb923c','#f472b6','#facc
 export function initEngine(isTraditional: boolean = false): EngineState {
   const signals = new Map<string, SignalState>();
   for (const j of JUNCTIONS) {
-    signals.set(j.id, {
-      signalId: j.id,
-      phase: Math.random() > 0.5 ? 'green' : 'red',
-      timeRemainingS: 10 + Math.random() * 20,
-      greenDurationS: 30,
-      queueNS: 0,
-      queueEW: 0,
-      nextPredictedPhase: 'green',
-      nextPredictedDurationS: 30,
-      hasEmergencyVehicle: false,
-    });
     if (isTraditional) {
+      // Stagger traditional signals across the full cycle so they don't all
+      // flip simultaneously — gives a natural, out-of-phase look.
+      // Full cycle = TRAD_GREEN(60) + YELLOW(3) + TRAD_RED(60) = 123s
+      const offset = Math.random() * (TRAD_GREEN + YELLOW_DURATION + TRAD_RED);
+      let phase: 'green' | 'yellow' | 'red';
+      let timeRemaining: number;
+      if (offset < TRAD_GREEN) {
+        phase = 'green'; timeRemaining = TRAD_GREEN - offset;
+      } else if (offset < TRAD_GREEN + YELLOW_DURATION) {
+        phase = 'yellow'; timeRemaining = TRAD_GREEN + YELLOW_DURATION - offset;
+      } else {
+        phase = 'red'; timeRemaining = TRAD_GREEN + YELLOW_DURATION + TRAD_RED - offset;
+      }
+      signals.set(j.id, {
+        signalId: j.id,
+        phase,
+        timeRemainingS: timeRemaining,
+        greenDurationS: TRAD_GREEN,
+        queueNS: 0,
+        queueEW: 0,
+        nextPredictedPhase: 'red',
+        nextPredictedDurationS: TRAD_RED,
+        hasEmergencyVehicle: false,
+      });
       tradPhaseStarveNS.set(j.id, 0);
       tradPhaseStarveEW.set(j.id, 0);
     } else {
+      signals.set(j.id, {
+        signalId: j.id,
+        phase: Math.random() > 0.5 ? 'green' : 'red',
+        timeRemainingS: 10 + Math.random() * 20,
+        greenDurationS: 30,
+        queueNS: 0,
+        queueEW: 0,
+        nextPredictedPhase: 'green',
+        nextPredictedDurationS: 30,
+        hasEmergencyVehicle: false,
+      });
       aiPhaseStarveNS.set(j.id, 0);
       aiPhaseStarveEW.set(j.id, 0);
     }
@@ -202,7 +226,8 @@ export function tick(state: EngineState, dtReal: number, events: SimulationEvent
 const AI_MAX_GREEN = 90;  // AI can go up to 90s based on queue
 const AI_MIN_GREEN = 8;   // AI minimum green
 const AI_MAX_STALL = 55;  // Force switch after 55s to prevent starvation
-const TRAD_GREEN   = 30;  // Traditional: always exactly 30s
+const TRAD_GREEN   = 60;  // Traditional: 60s green (realistic Chennai signal)
+const TRAD_RED     = 60;  // Traditional: 60s red (realistic Chennai signal)
 
 function tickSignals(state: EngineState, dt: number) {
   const starveNS = state.isTraditional ? tradPhaseStarveNS : aiPhaseStarveNS;
@@ -269,16 +294,24 @@ function tickSignals(state: EngineState, dt: number) {
         sig.phase = 'yellow';
         sig.timeRemainingS = YELLOW_DURATION;
       } else if (sig.phase === 'yellow') {
-        sig.phase = 'red';
-        sig.timeRemainingS = 2; // brief all-red
+        if (state.isTraditional) {
+          // Traditional: full red phase, no AI shortcuts
+          sig.phase = 'red';
+          sig.timeRemainingS = TRAD_RED;
+          sig.nextPredictedPhase = 'green';
+          sig.nextPredictedDurationS = TRAD_GREEN;
+        } else {
+          sig.phase = 'red';
+          sig.timeRemainingS = 2; // AI: brief all-red then optimizer decides
+        }
       } else {
         if (state.isTraditional) {
-          // Traditional: fixed 30s green, no adaptation
+          // Traditional: fixed 60s green, no adaptation, no AI
           sig.phase = 'green';
           sig.greenDurationS = TRAD_GREEN;
           sig.timeRemainingS = TRAD_GREEN;
           sig.nextPredictedPhase = 'red';
-          sig.nextPredictedDurationS = TRAD_GREEN;
+          sig.nextPredictedDurationS = TRAD_RED;
           sig.hasEmergencyVehicle = false;
           sig.emergencyDirection = undefined;
         } else {
@@ -567,6 +600,9 @@ async function handleAccidentTrigger(state: EngineState, junctionId: string) {
 
 /** Actually dispatch ambulance (and fire engine if critical) */
 async function doDispatch(state: EngineState, acc: AccidentEvent) {
+  // ── Guard: never dispatch twice for the same accident ──
+  if (acc.ambulanceId) return;
+
   const junctionId = acc.junctionId;
   const junc = JUNCTIONS.find(j => j.id === junctionId)!;
   const hospital = await getNearestHospital(junc.lat, junc.lon);
@@ -575,6 +611,9 @@ async function doDispatch(state: EngineState, acc: AccidentEvent) {
   // Path: hospital → accident
   const path = findPath(hospJunc.id, junctionId);
   if (path.length < 2) return;
+
+  // Resolve the actual start junction from path[0] (may differ from hospJunc if graph routing diverges)
+  const startJunc = JUNCTIONS.find(j => j.id === path[0]) ?? hospJunc;
 
   const { vehicleId: ambId } = await dispatchAmbulance(state.accidents, acc.id, hospital.id);
   acc.ambulanceId = ambId;
@@ -587,8 +626,8 @@ async function doDispatch(state: EngineState, acc: AccidentEvent) {
       fromJunctionId: path[0],
       toJunctionId:   path[1],
       roadId: road.id,
-      startLat: hospJunc.lat,
-      startLon: hospJunc.lon,
+      startLat: startJunc.lat,
+      startLon: startJunc.lon,
       color: '#ffffff',
       pathJunctionIds: path,
       accidentId: acc.id,
