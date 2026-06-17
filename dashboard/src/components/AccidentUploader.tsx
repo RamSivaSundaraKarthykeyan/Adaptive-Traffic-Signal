@@ -41,10 +41,10 @@ interface DispatchEvent {
 
 // ─── Severity helpers ───────────────────────────────────────────────────────
 const SEVERITY_META = {
-  LOW:      { color: "text-yellow-400",  bg: "bg-yellow-500/10", border: "border-yellow-500/30" },
-  MODERATE: { color: "text-orange-400",  bg: "bg-orange-500/10", border: "border-orange-500/30" },
-  HIGH:     { color: "text-red-400",     bg: "bg-red-500/10",    border: "border-red-500/30"    },
-  CRITICAL: { color: "text-rose-300",    bg: "bg-rose-500/15",   border: "border-rose-500/50"   },
+  LOW: { color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/30" },
+  MODERATE: { color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30" },
+  HIGH: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" },
+  CRITICAL: { color: "text-rose-300", bg: "bg-rose-500/15", border: "border-rose-500/50" },
 };
 
 // ─── Spoofed detection engine ───────────────────────────────────────────────
@@ -73,9 +73,9 @@ function simulateDetection(file: File): Promise<DetectionResult> {
       ];
 
       const unitMap: Record<DetectionResult["severity"], string[]> = {
-        LOW:      ["Ambulance-7"],
+        LOW: ["Ambulance-7"],
         MODERATE: ["Ambulance-7", "Traffic Police Unit-4"],
-        HIGH:     ["Ambulance-7", "Ambulance-12", "Traffic Police Unit-4", "Fire Brigade-2"],
+        HIGH: ["Ambulance-7", "Ambulance-12", "Traffic Police Unit-4", "Fire Brigade-2"],
         CRITICAL: ["Ambulance-7", "Ambulance-12", "Fire Brigade-2", "Fire Brigade-5", "Traffic Police Unit-4", "Police QRT"],
       };
 
@@ -104,14 +104,14 @@ function dispatchEmergencyServices(units: string[]): DispatchEvent[] {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 export default function AccidentUploader() {
-  const [file, setFile]               = useState<File | null>(null);
-  const [preview, setPreview]         = useState<string | null>(null);
-  const [state, setState]             = useState<AnalysisState>("idle");
-  const [result, setResult]           = useState<DetectionResult | null>(null);
-  const [dispatched, setDispatched]   = useState<DispatchEvent[]>([]);
-  const [dragOver, setDragOver]       = useState(false);
-  const [callLog, setCallLog]         = useState<string[]>([]);
-  const [progress, setProgress]       = useState(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [state, setState] = useState<AnalysisState>("idle");
+  const [result, setResult] = useState<DetectionResult | null>(null);
+  const [dispatched, setDispatched] = useState<DispatchEvent[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [callLog, setCallLog] = useState<string[]>([]);
+  const [progress, setProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── file intake ────────────────────────────────────────────────────────
@@ -223,8 +223,8 @@ export default function AccidentUploader() {
           dragOver
             ? "border-blue-500 bg-blue-500/5 scale-[1.01]"
             : file
-            ? "border-gray-700 bg-[#0d0d10]"
-            : "border-gray-700/60 bg-[#0d0d10] hover:border-gray-600 hover:bg-gray-900/40 cursor-pointer"
+              ? "border-gray-700 bg-[#0d0d10]"
+              : "border-gray-700/60 bg-[#0d0d10] hover:border-gray-600 hover:bg-gray-900/40 cursor-pointer"
         )}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -391,54 +391,9 @@ export default function AccidentUploader() {
               </div>
 
               {/* Recommended units */}
-              <div>
-                <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Recommended Response Units</div>
-                <div className="flex flex-wrap gap-2">
-                  {result.recommended_units.map((u) => (
-                    <span key={u} className="flex items-center gap-1.5 text-xs bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-full">
-                      <Ambulance size={11} className="text-red-400" />
-                      {u}
-                    </span>
-                  ))}
-                </div>
-              </div>
 
-              {/* Dispatch button */}
-              {dispatched.length === 0 ? (
-                <button
-                  id="dispatch-emergency-btn"
-                  onClick={manualDispatch}
-                  className="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center gap-2.5 shadow-xl shadow-red-600/25 text-sm"
-                >
-                  <ShieldAlert size={18} />
-                  DISPATCH EMERGENCY SERVICES
-                </button>
-              ) : (
-                <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
-                  <div className="flex items-center gap-2 text-orange-400 font-bold text-sm mb-3">
-                    <Radio size={15} className="animate-pulse" />
-                    Emergency Services Dispatched
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {dispatched.map((ev) => (
-                      <div key={ev.id} className="flex items-center justify-between text-xs">
-                        <span className="flex items-center gap-2 text-gray-300">
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                          {ev.unit}
-                        </span>
-                        <span className="flex items-center gap-3">
-                          <span className="text-gray-500 flex items-center gap-1">
-                            <Clock size={10} /> ETA {ev.eta} min
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-bold text-[10px] uppercase">
-                            {ev.status}
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
+
             </div>
           )}
         </div>
@@ -456,34 +411,7 @@ export default function AccidentUploader() {
       )}
 
       {/* ── Activity log ── */}
-      {callLog.length > 0 && (
-        <div className="rounded-2xl border border-gray-800 bg-[#080810] overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-800 flex items-center gap-2">
-            <Phone size={14} className="text-gray-500" />
-            <span className="text-sm font-semibold text-gray-300">Emergency Dispatch Log</span>
-            <span className="ml-auto text-[10px] text-gray-600 font-mono uppercase tracking-wider">LIVE</span>
-          </div>
-          <div className="p-4 font-mono text-xs leading-relaxed max-h-44 overflow-y-auto flex flex-col gap-1 scrollbar-hide">
-            {callLog.map((line, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "transition-all",
-                  line.includes("ACCIDENT") || line.includes("MANUAL")
-                    ? "text-red-400"
-                    : line.includes("Dispatching") || line.includes("Dispatch")
-                    ? "text-orange-400"
-                    : line.includes("complete") || line.includes("notified")
-                    ? "text-green-400"
-                    : "text-gray-500"
-                )}
-              >
-                {line}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

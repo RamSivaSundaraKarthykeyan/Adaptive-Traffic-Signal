@@ -75,9 +75,9 @@ export default function VisionFeed() {
     // Simulated realistic response from YOLO + CNN + RL pipeline
     const mockResult: AnalysisResult = {
       detections: [
-        { class: 'car',   conf: 0.94, bbox: [40,  80,  220, 190] },
+        { class: 'car', conf: 0.94, bbox: [40, 80, 220, 190] },
         { class: 'truck', conf: 0.88, bbox: [250, 100, 470, 230] },
-        { class: 'car',   conf: 0.91, bbox: [500, 120, 680, 220] },
+        { class: 'car', conf: 0.91, bbox: [500, 120, 680, 220] },
         { class: 'motorcycle', conf: 0.76, bbox: [150, 200, 230, 280] },
       ],
       accident_probability: Math.random() * 0.4,
@@ -168,34 +168,7 @@ export default function VisionFeed() {
 
       {result && !analyzing && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-            <div className="text-xs text-gray-500 mb-1">Vehicles Detected</div>
-            <div className="text-3xl font-black text-white">{result.vehicle_count}</div>
-            <div className="flex gap-1 mt-2 flex-wrap">
-              {result.detections.map((d, i) => (
-                <span key={i} className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: getColor(d.class) + '33', color: getColor(d.class) }}>
-                  {d.class}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-            <div className="text-xs text-gray-500 mb-1">Accident Risk</div>
-            <div className={cn("text-3xl font-black", result.accident_probability > 0.7 ? "text-red-400" : "text-green-400")}>
-              {(result.accident_probability * 100).toFixed(1)}%
-            </div>
-            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className={cn("h-full rounded-full", result.accident_probability > 0.7 ? "bg-red-500" : "bg-green-500")}
-                style={{ width: `${result.accident_probability * 100}%` }} />
-            </div>
-          </div>
-          <div className="col-span-2 bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 flex items-center justify-between">
-            <div className="text-sm text-gray-400">RL Agent Recommendation</div>
-            <div className="flex items-center gap-2 font-bold text-blue-400">
-              <Play size={16} />
-              Phase {result.rl_suggested_phase} Activated
-            </div>
-          </div>
+
         </div>
       )}
     </div>
