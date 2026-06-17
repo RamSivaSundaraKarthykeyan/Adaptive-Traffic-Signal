@@ -108,8 +108,16 @@ export default function MapSimulation() {
   const coordinatorRef = useRef({ nextSpawnT: 0 });
   const [maxVehicles, setMaxVehicles] = useState(50);
   const maxVehiclesRef = useRef(50);
+  const [vehicleSpeedMultiplier, setVehicleSpeedMultiplier] = useState(1.0);
+
   // keep a ref so the animation loop (closure) always reads the latest value
   useEffect(() => { maxVehiclesRef.current = maxVehicles; }, [maxVehicles]);
+
+  const handleVehicleSpeedMultiplierChange = (val: number) => {
+    setVehicleSpeedMultiplier(val);
+    aiEngineRef.current.vehicleSpeedMultiplier = val;
+    tradEngineRef.current.vehicleSpeedMultiplier = val;
+  };
 
   // ── Manual trigger handlers ─────────────────────────────────────────
   const triggerManualAccident = useCallback(() => {
@@ -225,10 +233,14 @@ export default function MapSimulation() {
 
   const restart = () => {
     cancelAnimationFrame(rafRef.current);
-    aiEngineRef.current = initEngine(false);
-    tradEngineRef.current = initEngine(true);
-    setAiDisplayState(initEngine(false));
-    setTradDisplayState(initEngine(true));
+    const newAi = initEngine(false);
+    const newTrad = initEngine(true);
+    newAi.vehicleSpeedMultiplier = vehicleSpeedMultiplier;
+    newTrad.vehicleSpeedMultiplier = vehicleSpeedMultiplier;
+    aiEngineRef.current = newAi;
+    tradEngineRef.current = newTrad;
+    setAiDisplayState(newAi);
+    setTradDisplayState(newTrad);
     frameRef.current = 0;
     prevAmbRef.current = 0;
     prevFireRef.current = 0;
@@ -283,6 +295,24 @@ export default function MapSimulation() {
           >
             {[10, 25, 50, 100, 200].map(n => (
               <option key={n} value={n} className="bg-gray-900 text-gray-200">{n}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Vehicle Speed dropdown */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/60 border border-gray-700/50 rounded-xl flex-shrink-0">
+          <Activity size={13} className="text-gray-400" />
+          <label htmlFor="vehicle-speed-select" className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide whitespace-nowrap">Vehicle Speed</label>
+          <select
+            id="vehicle-speed-select"
+            value={vehicleSpeedMultiplier}
+            onChange={e => handleVehicleSpeedMultiplierChange(Number(e.target.value))}
+            className="bg-transparent text-gray-200 text-xs font-bold outline-none cursor-pointer"
+          >
+            {[0.5, 1.0, 1.5, 2.0, 3.0].map(n => (
+              <option key={n} value={n} className="bg-gray-900 text-gray-200">
+                {n === 1.0 ? '1.0x (Default)' : `${n}x`}
+              </option>
             ))}
           </select>
         </div>
@@ -382,6 +412,10 @@ export default function MapSimulation() {
               engineState={aiDisplayState}
               frame={frame}
               onSignalClick={setSelectedJunctionId}
+              onAccidentClick={(jId) => {
+                const ev: SimulationEvent = { type: 'force_resolve_accident', junctionId: jId };
+                aiEngineRef.current = tick(aiEngineRef.current, 0, [ev]);
+              }}
               selectedSignalId={selectedJunctionId}
               isTraditional={false}
             />
@@ -402,6 +436,10 @@ export default function MapSimulation() {
               engineState={tradDisplayState}
               frame={frame}
               onSignalClick={() => { }}
+              onAccidentClick={(jId) => {
+                const ev: SimulationEvent = { type: 'force_resolve_accident', junctionId: jId };
+                tradEngineRef.current = tick(tradEngineRef.current, 0, [ev]);
+              }}
               selectedSignalId={null}
               isTraditional={true}
             />

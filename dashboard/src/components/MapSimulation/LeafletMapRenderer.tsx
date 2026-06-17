@@ -21,6 +21,7 @@ interface LeafletMapRendererProps {
   engineState: EngineState;
   frame: number;
   onSignalClick: (junctionId: string) => void;
+  onAccidentClick?: (junctionId: string) => void;
   selectedSignalId: string | null;
   isTraditional?: boolean;
 }
@@ -134,7 +135,7 @@ function densityColor(d: number): string {
   return '#94a3b8';
 }
 
-export default function LeafletMapRenderer({ engineState, frame, onSignalClick, selectedSignalId, isTraditional }: LeafletMapRendererProps) {
+export default function LeafletMapRenderer({ engineState, frame, onSignalClick, onAccidentClick, selectedSignalId, isTraditional }: LeafletMapRendererProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -226,7 +227,12 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
                 position={[j.lat, j.lon]}
                 icon={cautionIcon!}
                 eventHandlers={{
-                  click: () => onSignalClick(j.id)
+                  click: () => {
+                    onSignalClick(j.id);
+                    if (onAccidentClick) {
+                      onAccidentClick(j.id);
+                    }
+                  }
                 }}
               >
 
