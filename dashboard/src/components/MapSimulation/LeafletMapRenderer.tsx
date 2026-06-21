@@ -21,6 +21,7 @@ interface LeafletMapRendererProps {
   engineState: EngineState;
   frame: number;
   onSignalClick: (junctionId: string) => void;
+  onAccidentClick?: (junctionId: string) => void;
   selectedSignalId: string | null;
   isTraditional?: boolean;
 }
@@ -37,11 +38,24 @@ const hospitalIcon = typeof window !== 'undefined' ? L.divIcon({
   iconAnchor: [10, 10],
 }) : null;
 
+const cautionIcon = typeof window !== 'undefined' ? L.divIcon({
+  html: `<div style="display:flex; align-items:center; justify-content:center; width:28px; height:28px; filter: drop-shadow(0 0 6px rgba(239,68,68,0.6));">
+           <svg viewBox="0 0 24 24" width="28" height="28" stroke="#ef4444" stroke-width="2.5" fill="#ef4444" fill-opacity="0.2" stroke-linecap="round" stroke-linejoin="round">
+             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+             <line x1="12" y1="9" x2="12" y2="13" stroke="#ef4444" stroke-width="3"></line>
+             <line x1="12" y1="17" x2="12.01" y2="17" stroke="#ef4444" stroke-width="3"></line>
+           </svg>
+         </div>`,
+  className: '',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+}) : null;
+
 // Vehicle Icons Generator
 const getVehicleIcon = (v: VehicleState, frame: number) => {
   if (typeof window === 'undefined') return null;
   const sirenFlash = Math.floor(frame / 6) % 2 === 0;
-  
+
   if (v.type === 'ambulance') {
     return L.divIcon({
       html: `<div style="width:16px; height:10px; background-color:#ffffff; position:relative; box-shadow: ${sirenFlash ? '0 0 10px rgba(239,68,68,0.8)' : 'none'};">
@@ -61,18 +75,56 @@ const getVehicleIcon = (v: VehicleState, frame: number) => {
       iconAnchor: [9, 5],
     });
   }
-  
+
   // Normal car
+  const svgNames = [
+    'car-private-car-svgrepo-com.svg',
+    'car-private-car-svgrepo-com (1).svg',
+    'car-private-car-svgrepo-com (2).svg'
+  ];
+  let svgIdx = 0;
+  if (v.id) {
+    let charSum = 0;
+    for (let i = 0; i < v.id.length; i++) {
+      charSum += v.id.charCodeAt(i);
+    }
+    svgIdx = charSum % svgNames.length;
+  }
+  const svgName = svgNames[svgIdx];
+
+  const road = ROADS.find(r => r.id === v.roadId);
+  let isMovingLeft = false;
+  if (road) {
+    if (road.path && road.path.length >= 2) {
+      const numSegments = road.path.length - 1;
+      const scaledProgress = v.progress * numSegments;
+      const segIdx = Math.min(Math.floor(scaledProgress), numSegments - 1);
+      const p1 = road.path[segIdx];
+      const p2 = road.path[segIdx + 1];
+      isMovingLeft = p2[1] > p1[1];
+    } else {
+      const fromJ = JUNCTIONS.find(j => j.id === v.fromJunctionId);
+      const toJ = JUNCTIONS.find(j => j.id === v.toJunctionId);
+      if (fromJ && toJ) {
+        isMovingLeft = toJ.lon < fromJ.lon;
+      }
+    }
+  }
+
+  const transformStyle = isMovingLeft ? 'transform: scaleX(-1);' : '';
+
   return L.divIcon({
-    html: `<div style="width:8px; height:8px; background-color:${v.color}; border-radius:50%; box-shadow: 0 0 4px ${v.color};"></div>`,
+    html: `<div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; ${transformStyle}">
+             <img src="/${svgName}" style="width:24px; height:24px;" alt="car" />
+           </div>`,
     className: '',
-    iconSize: [8, 8],
-    iconAnchor: [4, 4],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 };
 
 function signalColor(phase: string): string {
-  if (phase === 'green')  return '#22c55e';
+  if (phase === 'green') return '#22c55e';
   if (phase === 'yellow') return '#eab308';
   return '#ef4444';
 }
@@ -83,7 +135,7 @@ function densityColor(d: number): string {
   return '#94a3b8';
 }
 
-export default function LeafletMapRenderer({ engineState, frame, onSignalClick, selectedSignalId, isTraditional }: LeafletMapRendererProps) {
+export default function LeafletMapRenderer({ engineState, frame, onSignalClick, onAccidentClick, selectedSignalId, isTraditional }: LeafletMapRendererProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -108,9 +160,9 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
         </h3>
       </div>
 
-      <MapContainer 
-        center={MAP_CENTER} 
-        zoom={ZOOM} 
+      <MapContainer
+        center={MAP_CENTER}
+        zoom={ZOOM}
         style={{ height: '100%', width: '100%', backgroundColor: '#f8fafc' }}
         zoomControl={false}
         attributionControl={false}
@@ -124,7 +176,7 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
           const fromJ = JUNCTIONS.find(j => j.id === road.from);
           const toJ = JUNCTIONS.find(j => j.id === road.to);
           if (!fromJ || !toJ) return null;
-          
+
           const density = engineState.densityMap.get(road.id) ?? 0;
           const color = densityColor(density);
 
@@ -148,9 +200,9 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
 
         {/* Hospitals */}
         {HOSPITALS.map(h => (
-          <Marker 
-            key={h.id} 
-            position={[h.lat, h.lon]} 
+          <Marker
+            key={h.id}
+            position={[h.lat, h.lon]}
             icon={hospitalIcon!}
           >
             <Tooltip direction="top" offset={[0, -10]} className="bg-rose-900/90 text-rose-100 border-rose-500 font-bold">
@@ -167,26 +219,46 @@ export default function LeafletMapRenderer({ engineState, frame, onSignalClick, 
           const isSelected = selectedSignalId === j.id;
 
           const hasAccident = Array.from(engineState.accidents.values()).some(a => a.junctionId === j.id && !a.resolved);
-          
+
+          if (hasAccident) {
+            return (
+              <Marker
+                key={j.id}
+                position={[j.lat, j.lon]}
+                icon={cautionIcon!}
+                eventHandlers={{
+                  click: () => {
+                    onSignalClick(j.id);
+                    if (onAccidentClick) {
+                      onAccidentClick(j.id);
+                    }
+                  }
+                }}
+              >
+
+              </Marker>
+            );
+          }
+
           return (
             <CircleMarker
               key={j.id}
               center={[j.lat, j.lon]}
               radius={isSelected ? 10 : 7}
               pathOptions={{
-                fillColor: hasAccident ? '#ef4444' : color,
+                fillColor: color,
                 fillOpacity: 1,
-                color: hasAccident ? '#ffffff' : '#cbd5e1',
+                color: '#cbd5e1',
                 weight: 2,
               }}
               eventHandlers={{
                 click: () => onSignalClick(j.id)
               }}
             >
-              <Tooltip direction="top" offset={[0, -10]} permanent={hasAccident} className="bg-white/90 text-gray-800 border-gray-200 font-bold shadow-sm">
-                {hasAccident ? `⚠️ ACCIDENT: ${j.name}` : j.name}
-                <br/>
-                <span className="text-xs text-gray-500 font-normal">Q: {(sig?.queueNS??0) + (sig?.queueEW??0)} · {Math.ceil(sig?.timeRemainingS??0)}s</span>
+              <Tooltip direction="top" offset={[0, -10]} className="bg-white/90 text-gray-800 border-gray-200 font-bold shadow-sm">
+                {j.name}
+                <br />
+                <span className="text-xs text-gray-500 font-normal">Q: {(sig?.queueNS ?? 0) + (sig?.queueEW ?? 0)} · {Math.ceil(sig?.timeRemainingS ?? 0)}s</span>
               </Tooltip>
             </CircleMarker>
           );

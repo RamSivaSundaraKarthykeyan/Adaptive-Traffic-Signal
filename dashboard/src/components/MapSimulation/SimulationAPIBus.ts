@@ -158,8 +158,8 @@ export async function spawnVehicle(
     toJunctionId: params.toJunctionId,
     roadId: params.roadId,
     progress: 0,
-    speed: params.type === 'fire_engine' ? 200 :
-           params.type === 'ambulance'   ? 170 : 90 + Math.random() * 40,
+    speed: params.type === 'fire_engine' ? 45 :
+           params.type === 'ambulance'   ? 40 : 20 + Math.random() * 10,
     color: params.color,
     state: 'moving',
     accidentId: params.accidentId,

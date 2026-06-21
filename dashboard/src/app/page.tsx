@@ -39,16 +39,7 @@ export default function Home() {
     <div className="flex h-screen bg-[#0a0a0c] text-gray-100 overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 border-r border-gray-800/80 flex flex-col bg-[#0c0c0f]">
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-800/80 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
-            <Radio size={18} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold leading-tight text-white">Chennai-ITMS AI</h1>
-            <p className="text-[10px] text-gray-500 tracking-wide">Smart Traffic Platform</p>
-          </div>
-        </div>
+
 
         {/* Nav */}
         <nav className="flex-1 p-4 flex flex-col gap-1">
@@ -102,7 +93,7 @@ export default function Home() {
                 <div>
                   <h2 className="text-2xl font-black text-white">AI Traffic Simulation</h2>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    Real-time side-by-side: RL-PPO adaptive signal vs. traditional fixed timing — Chennai arterial corridors
+                    Real-time side-by-side: RL-PPO adaptive signal vs. traditional fixed timing
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500">

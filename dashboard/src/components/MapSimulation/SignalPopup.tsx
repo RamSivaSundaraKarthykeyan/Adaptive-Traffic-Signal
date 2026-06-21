@@ -19,11 +19,11 @@ function videoIndexForJunction(junctionId: string): number {
 }
 
 export default function SignalPopup({ junctionId, signalState, onClose }: SignalPopupProps) {
-  const junction     = JUNCTIONS.find(j => j.id === junctionId);
-  const hospital     = HOSPITALS.find(h => h.nearestJunctionId === junctionId);
-  const baseIdx      = videoIndexForJunction(junctionId);
+  const junction = JUNCTIONS.find(j => j.id === junctionId);
+  const hospital = HOSPITALS.find(h => h.nearestJunctionId === junctionId);
+  const baseIdx = videoIndexForJunction(junctionId);
   const [vidIdx, setVidIdx] = useState(baseIdx);
-  const videoRef     = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Auto-cycle to next video every 12 s
   useEffect(() => {
@@ -35,25 +35,25 @@ export default function SignalPopup({ junctionId, signalState, onClose }: Signal
 
   useEffect(() => {
     videoRef.current?.load();
-    videoRef.current?.play().catch(() => {});
+    videoRef.current?.play().catch(() => { });
   }, [vidIdx]);
 
   if (!junction) return null;
 
-  const sig    = signalState;
-  const phase  = sig?.phase ?? 'red';
+  const sig = signalState;
+  const phase = sig?.phase ?? 'red';
   const phaseColor =
-    phase === 'green'  ? 'text-green-400'  :
-    phase === 'yellow' ? 'text-yellow-400' : 'text-red-400';
+    phase === 'green' ? 'text-green-400' :
+      phase === 'yellow' ? 'text-yellow-400' : 'text-red-400';
   const phaseBg =
-    phase === 'green'  ? 'bg-green-500/10 border-green-500/20'  :
-    phase === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
+    phase === 'green' ? 'bg-green-500/10 border-green-500/20' :
+      phase === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-red-500/10 border-red-500/20';
 
   const prevVid = () => setVidIdx(v => (v - 1 + TRAFFIC_VIDEOS.length) % TRAFFIC_VIDEOS.length);
   const nextVid = () => setVidIdx(v => (v + 1) % TRAFFIC_VIDEOS.length);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/60 backdrop-blur-sm">
+    <div className="absolute py-8 inset-0 flex items-center justify-center z-70 bg-black/60 backdrop-blur-sm">
       <div className="w-[520px] max-h-[90vh] overflow-y-auto bg-[#0c0f1d] border border-gray-700/60 rounded-2xl shadow-2xl flex flex-col">
 
         {/* Header */}
